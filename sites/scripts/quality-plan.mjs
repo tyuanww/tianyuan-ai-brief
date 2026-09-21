@@ -9,6 +9,7 @@ export const releaseSteps = [
   'lint:openapi', 'check:owner-contract', 'lint:owner-openapi',
   'test:backend-candidate', 'check:backend-contract', 'lint:backend-openapi',
   'test:ops-loop-candidate', 'check:ops-loop-contract', 'lint:ops-loop-openapi',
+  'test:coach-publish-candidate', 'check:coach-publish-contract', 'lint:coach-publish-openapi',
   'test:sql-grammar', 'test:architecture-contract', 'check:arch-diagrams', 'audit:deps',
 ];
 

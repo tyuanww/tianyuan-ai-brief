@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const parser = require('@libpg-query/parser');
+const root = new URL('../../business-docs/01-客服Agent项目/30-开发-进行中/coach-publish-candidate/', import.meta.url);
+const sql = readFileSync(new URL('storage.delta.sql', root), 'utf8');
+await parser.loadModule();
+const parsed = parser.parseSync(sql);
+assert.ok(parsed.stmts.length > 0);
+assert.match(sql, /CREATE OR REPLACE FUNCTION publish_content_release/);
+assert.match(sql, /coach publish is limited to product and campaign/);
+assert.match(sql, /runtime_activated remains false/);
+assert.doesNotMatch(sql, /phase1 publish requires owner/);
+assert.match(sql, /ib\.domain NOT IN \('product', 'campaign'\)/);
+assert.match(sql, /过敏/);
+assert.match(sql, /赔付/);
+console.log(JSON.stringify({ ok: true, sqlStatements: parsed.stmts.length }));
