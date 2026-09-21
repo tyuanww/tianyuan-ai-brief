@@ -2594,7 +2594,7 @@ def test_arch_board_tabs_a11y_fit_mapping_and_offline() -> None:
     ):
         assert re.search(invariant, t), f"architecture board missing DEC-042 invariant: {invariant}"
     _assert_same_line(t, "扩展治理", "静态已冻结", "N/N-1", "PlatformAdapter", "迁移兼容矩阵", "不新增端口、路由或表")
-    _assert_same_line(t, "当前推进项", "第 4 关代码开发", "G0=PASS", "Ddev=PASS", "DEV-M1 产品实施与退出证据已完成", "准备正式身份与内容运行链实施计划", "待单独授权")
+    _assert_same_line(t, "当前推进项", "第 4 关代码开发", "G0=PASS", "Ddev=PASS", "DEV-M1 产品实施与退出证据已完成", "评审 DEV-M2 运营闭环合同增量", "待单独授权")
     _assert_same_line(t, "组织门禁", "G0 / Ddev Pass")
     _assert_same_line(t, "架构关", "Ddev 已独立签发", "真实问法", "Pilot", "上线仍须后续独立签发")
     _assert_same_line(t, "小白说明", "Ddev 已签发", "DEV-M1 产品实施与退出证据已完成", "纯合成工程范围", "真实来源", "生产")
@@ -2607,7 +2607,7 @@ def test_arch_board_tabs_a11y_fit_mapping_and_offline() -> None:
         "EVD-DDEV-AUTH-20260831",
         "DEV-M0",
         "DEV-M1 产品实施与退出证据已完成",
-        "准备正式身份与内容运行链实施计划",
+        "评审 DEV-M2 运营闭环合同增量",
         "待单独授权",
     )
     _assert_same_line(t, "外部责任包 14/14", "Scope 15/15", "EVD-G0-SIGN-20260831", "EVD-DDEV-AUTH-20260831")
