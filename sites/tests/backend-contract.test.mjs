@@ -6,7 +6,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { buildBackendContractFiles, BACKEND_CONTRACT_PATHS, BACKEND_SOURCES, buildClosureContractFiles, CLOSURE_CONTRACT_PATHS, CLOSURE_DELTA_PATH, buildOpsLoopContractFiles, OPS_LOOP_CONTRACT_PATHS, OPS_LOOP_SOURCES } from '../../business-docs/08-工具/build_customer_agent_backend_contract.mjs';
+import { buildBackendContractFiles, BACKEND_CONTRACT_PATHS, BACKEND_SOURCES, buildClosureContractFiles, CLOSURE_CONTRACT_PATHS, CLOSURE_DELTA_PATH, buildOpsLoopContractFiles, OPS_LOOP_CONTRACT_PATHS, OPS_LOOP_SOURCES, buildCoachPublishContractFiles, COACH_PUBLISH_CONTRACT_PATHS, COACH_PUBLISH_SOURCES } from '../../business-docs/08-工具/build_customer_agent_backend_contract.mjs';
 import { OWNER_SQL_SOURCES, OWNER_PROFILE_PATH, OWNER_CONTRACT_PATHS } from '../../business-docs/08-工具/build_customer_agent_owner_contract.mjs';
 import { CONTRACT_SOURCE_PATHS, loadContractSetFromCommit } from '../../business-docs/08-工具/export_customer_agent_contract_set.mjs';
 const read = source => readFileSync(new URL(`../../${source}`,import.meta.url));
@@ -79,5 +79,26 @@ test('ops-loop export validates 1.14.0 / v1.18 and refuses closure downgrade',()
   assert.equal(manifest.openapi.version,'1.14.0');
   write(OWNER_PROFILE_PATH,JSON.stringify({schema:'customer-agent-contract-profile/v1',profile:'backend-closure-v1'}));
   assert.throws(()=>loadContractSetFromCommit({...options,sourceGitSha:commit()}),/拒绝降级 ops-loop/);
+ } finally {rmSync(repo,{recursive:true,force:true});}
+});
+test('coach-publish export validates 1.15.0 / v1.19 and refuses ops-loop downgrade',()=>{
+ const selected = buildCoachPublishContractFiles(read);
+ const repo=mkdtempSync(path.join(tmpdir(),'coach-publish-export-'));
+ const git=(...args)=>execFileSync('git',args,{cwd:repo,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+ const write=(file,bytes)=>{mkdirSync(path.dirname(path.join(repo,file)),{recursive:true});writeFileSync(path.join(repo,file),bytes);};
+ try {
+  const development=path.posix.dirname(OWNER_PROFILE_PATH);
+  const approval='business-docs/01-客服Agent项目/90-评审/2026-09-09_后端合成开发批准.md';
+  const files=new Set([...Object.values(CONTRACT_SOURCE_PATHS),...OWNER_SQL_SOURCES,...Object.values(OWNER_CONTRACT_PATHS),...Object.values(BACKEND_CONTRACT_PATHS),...Object.values(BACKEND_SOURCES),...Object.values(CLOSURE_CONTRACT_PATHS),CLOSURE_DELTA_PATH,...Object.values(OPS_LOOP_CONTRACT_PATHS),...Object.values(OPS_LOOP_SOURCES),...Object.values(COACH_PUBLISH_CONTRACT_PATHS),...Object.values(COACH_PUBLISH_SOURCES),OWNER_PROFILE_PATH,approval,`${development}/owner-acceptance.v1.schema.json`,`${development}/owner-acceptance.registry.v1.openapi-extension.json`]);
+  for(const file of files) write(file,read(file));
+  write(OWNER_PROFILE_PATH,JSON.stringify({schema:'customer-agent-contract-profile/v1',profile:'coach-publish-v1'}));
+  git('init','-q');git('config','user.email','synthetic@example.invalid');git('config','user.name','Synthetic');
+  const commit=()=>{git('add','--all');git('commit','-qm','synthetic contract fixture');return git('rev-parse','HEAD');};
+  const options={repository:repo,sourceGitSha:commit(),expectedOpenapiSha256:hash(selected.openapi),expectedDatabaseSha256:hash(selected.database)};
+  const manifest=loadContractSetFromCommit(options).manifest;
+  assert.equal(manifest.database.version,'schema.v1.19');
+  assert.equal(manifest.openapi.version,'1.15.0');
+  write(OWNER_PROFILE_PATH,JSON.stringify({schema:'customer-agent-contract-profile/v1',profile:'ops-loop-v1'}));
+  assert.throws(()=>loadContractSetFromCommit({...options,sourceGitSha:commit()}),/拒绝降级 coach-publish/);
  } finally {rmSync(repo,{recursive:true,force:true});}
 });
