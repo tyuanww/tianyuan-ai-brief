@@ -1,10 +1,18 @@
 # DEV-M2 运营闭环合同增量
 
-> **状态：** `DRAFT · NOT EXPORTED · NOT INTAKE`
+> **状态：** `FROZEN · NOT EXPORTED · NOT INTAKE · SYNTHETIC DEVELOPMENT ONLY`
 > **适用里程碑：** `DEV-M2`（能力合同；不自动放行真实飞书、真实数据、部署、Pilot 或付费）
 > **父基线：** 产品仓已消费 `cs-ai-c11-openapi-1.13.0-schema-1.17-0904a0aa11f2`（治理仓 `0904a0a`）。OpenAPI 1.13.0 / schema.v1.17。
 > **G0 / Ddev：** 既有 `EVD-G0-SIGN-20260831` 与 `EVD-DDEV-AUTH-20260831` 保持。本文件不重新签发 G0/Ddev，也不把 `runtime_activated` 改为 true。
-> **产品仓事实：** `tyuanww/customer-agent-prototype` `main@af8a7ae`（0.3.17）。五项工作台、Owner dual-review 发布、loopback 代理绕过已合入。SOP 写、话术单条改删、「话术不准」落库、检索账 KPI、软件目录仍无冻结合同，桌面保持「未接入」。
+> **产品仓事实：** `tyuanww/customer-agent-prototype` `main@af8a7ae`（0.3.17）。五项工作台、Owner dual-review 发布、loopback 代理绕过已合入。SOP 写、话术单条改删、「话术不准」落库、检索账 KPI、软件目录仍待本机器合同 export → intake。
+
+**直接前序机器合同：** DDL `419d84fbe827a5803b731250145e97786f6cb76c6d7aa9b3bc21bcac3c90f133` / OpenAPI `c3c14659261ed01ff4f0c187026601844f59d3cd26be605a34f647bc130cc94c`。
+
+**DEV-M2 机器合同增量：** DDL `5713f80e9abfd72592ad49955efb83cd8498ce9cd6c7be52b96c57bcde836caa` / OpenAPI `39f69edfdbffcad6a57d3e9fc43e1f6a3cbdc1e8fdd951e30bdbbfe97eb3e394`。
+
+**实际产物必须精确匹配：** DDL `5713f80e9abfd72592ad49955efb83cd8498ce9cd6c7be52b96c57bcde836caa` / OpenAPI `39f69edfdbffcad6a57d3e9fc43e1f6a3cbdc1e8fdd951e30bdbbfe97eb3e394`。
+
+固定生成器在 `backend-closure-v1` 之上追加 `ops-loop-candidate`，产出 OpenAPI 1.14.0 / schema.v1.18。不改 20-设计冻结的 OpenAPI 1.11.0 与 `33-schema-v1-草案.sql`。旧文件保持不变。DDL 是 clean-install reference，产品以不可变新增 migration 接收。`runtime_activated=false`；禁止 `latest.yml`。
 
 ## 1. 为什么开本增量
 
@@ -65,7 +73,7 @@
 - `download_url` 只允许 https；`signed=false` 必须出现在 UNSIGNED 条目
 - **禁止** electron-updater `latest.yml` 打正式域；客户端只展示目录并打开下载提示
 
-## 3. 存储要点（schema.v1.18 候选）
+## 3. 存储要点（schema.v1.18）
 
 新表不得授予 `app_runtime` 直读 backing 明细。
 
@@ -78,9 +86,9 @@
 
 ## 4. 交接顺序
 
-1. 本文件在治理仓评审（本分支）。
-2. 合并进 `20-设计-进行中/openapi.v1.yaml` 与 `33-schema-v1-草案.sql`（下一刀；本文件不替代那两份机器合同）。
-3. `export_customer_agent_contract_set.mjs --source <40位SHA>` 生成新 `contract_set_id`。
+1. 本文件能力增量已在治理仓 PR #8 评审合入。
+2. 机器合同由生成器写入 `30-开发-进行中/openapi.v1.14.yaml` 与 `schema.v1.18.sql`（本刀）。不改 20-设计冻结字节。
+3. `export_customer_agent_contract_set.mjs --source-git-sha <40位SHA>` 生成新 `contract_set_id`（仍未做）。
 4. 产品仓 `pnpm contracts:intake --source <id> --source-repository-root <立项仓>`。
 5. 产品仓实现 SOP/不准/KPI/软件目录；UNSIGNED 重打。
 6. 真实飞书、办公机 HTTPS、签名公证、Pilot 仍须专项批准，不因本增量自动获准。

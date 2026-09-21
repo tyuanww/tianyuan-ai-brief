@@ -21,7 +21,14 @@ import {
   OWNER_PROFILE_PATH, OWNER_CONTRACT_PATHS, buildOwnerContractFiles,
 } from "./build_customer_agent_owner_contract.mjs";
 
-import { BACKEND_CONTRACT_PATHS, buildBackendContractFiles, CLOSURE_CONTRACT_PATHS, buildClosureContractFiles } from "./build_customer_agent_backend_contract.mjs";
+import {
+  BACKEND_CONTRACT_PATHS,
+  buildBackendContractFiles,
+  CLOSURE_CONTRACT_PATHS,
+  buildClosureContractFiles,
+  OPS_LOOP_CONTRACT_PATHS,
+  buildOpsLoopContractFiles,
+} from "./build_customer_agent_backend_contract.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryRoot = path.resolve(path.dirname(scriptPath), "../..");
@@ -271,21 +278,26 @@ export function loadContractSetFromCommit({
   }
   let backendProfile = false;
   let closureProfile = false;
+  let opsLoopProfile = false;
   if (ownerProfile) {
     const profile = JSON.parse(utf8(readSource(OWNER_PROFILE_PATH), OWNER_PROFILE_PATH));
     if (Object.keys(profile).sort().join(",") !== "profile,schema"
         || profile.schema !== "customer-agent-contract-profile/v1"
-        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1"].includes(profile.profile)) {
+        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1"].includes(profile.profile)) {
       throw new Error("未知或不封闭的合同来源 profile");
     }
+    opsLoopProfile = profile.profile === "ops-loop-v1";
     closureProfile = profile.profile === "backend-closure-v1";
-    backendProfile = closureProfile || profile.profile === "backend-synthetic-v1";
+    backendProfile = opsLoopProfile || closureProfile || profile.profile === "backend-synthetic-v1";
   }
   if (!backendProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", BACKEND_CONTRACT_PATHS.increment])) {
     throw new Error("来源 commit 已存在后端合同历史，拒绝降级 owner profile");
   }
-  if (!closureProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", CLOSURE_CONTRACT_PATHS.increment])) throw new Error("拒绝降级 closure profile");
-  const sourcePaths = closureProfile
+  if (!closureProfile && !opsLoopProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", CLOSURE_CONTRACT_PATHS.increment])) throw new Error("拒绝降级 closure profile");
+  if (!opsLoopProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", OPS_LOOP_CONTRACT_PATHS.database])) throw new Error("拒绝降级 ops-loop profile");
+  const sourcePaths = opsLoopProfile
+    ? { ...CONTRACT_SOURCE_PATHS, openapi: OPS_LOOP_CONTRACT_PATHS.openapi, database: OPS_LOOP_CONTRACT_PATHS.database }
+    : closureProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: CLOSURE_CONTRACT_PATHS.openapi, database: CLOSURE_CONTRACT_PATHS.database }
     : backendProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: BACKEND_CONTRACT_PATHS.openapi, database: BACKEND_CONTRACT_PATHS.database }
@@ -338,7 +350,7 @@ export function loadContractSetFromCommit({
   if (backendProfile) {
     const generated = buildBackendContractFiles(readSource);
     for (const key of ["database", "openapi"]) {
-      if (!(closureProfile ? readSource(BACKEND_CONTRACT_PATHS[key]) : buffers[key]).equals(generated[key])) throw new Error(`后端合同派生产物与来源不一致：${key}`);
+      if (!readSource(BACKEND_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`后端合同派生产物与来源不一致：${key}`);
     }
     const increment = utf8(readSource(BACKEND_CONTRACT_PATHS.increment), BACKEND_CONTRACT_PATHS.increment);
     const approval = utf8(readSource("business-docs/01-客服Agent项目/90-评审/2026-09-09_后端合成开发批准.md"), "后端开发批准");
@@ -355,17 +367,43 @@ export function loadContractSetFromCommit({
     }
   }
 
-  if (closureProfile) {
+  if (closureProfile || opsLoopProfile) {
     const generated = buildClosureContractFiles(readSource);
     for (const key of ["database", "openapi"]) {
-      if (!buffers[key].equals(generated[key])) throw new Error(`收尾合同派生产物漂移：${key}`);
+      if (!readSource(CLOSURE_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`收尾合同派生产物漂移：${key}`);
     }
     const increment = utf8(readSource(CLOSURE_CONTRACT_PATHS.increment), "收尾合同");
     if (!/^> 状态：FROZEN · SYNTHETIC DEVELOPMENT ONLY\r?$/m.test(increment)) throw new Error("收尾合同未冻结");
     const lines = linesForAnchor(increment, "收尾合同", "**实际产物必须精确匹配：**");
     if (lines.length !== 1) throw new Error("收尾哈希声明必须唯一");
     hashPairFromLine(lines[0], "收尾合同");
-    assertLineCarriesHashes(lines[0], "收尾合同", databaseHash, openapiHash);
+    assertLineCarriesHashes(
+      lines[0],
+      "收尾合同",
+      sha256(readSource(CLOSURE_CONTRACT_PATHS.database)),
+      sha256(readSource(CLOSURE_CONTRACT_PATHS.openapi)),
+    );
+  }
+
+  if (opsLoopProfile) {
+    const generated = buildOpsLoopContractFiles(readSource);
+    for (const key of ["database", "openapi"]) {
+      if (!buffers[key].equals(generated[key])) throw new Error(`运营闭环合同派生产物漂移：${key}`);
+    }
+    const increment = utf8(readSource(OPS_LOOP_CONTRACT_PATHS.increment), "运营闭环合同");
+    if (!/FROZEN · NOT EXPORTED · NOT INTAKE/.test(increment)) {
+      throw new Error("运营闭环合同未冻结");
+    }
+    for (const [anchor, ddl, api] of [
+      ["**直接前序机器合同：**", sha256(readSource(CLOSURE_CONTRACT_PATHS.database)), sha256(readSource(CLOSURE_CONTRACT_PATHS.openapi))],
+      ["**DEV-M2 机器合同增量：**", databaseHash, openapiHash],
+      ["**实际产物必须精确匹配：**", databaseHash, openapiHash],
+    ]) {
+      const lines = linesForAnchor(increment, "运营闭环合同", anchor);
+      if (lines.length !== 1) throw new Error(`运营闭环合同声明必须唯一：${anchor}`);
+      hashPairFromLine(lines[0], anchor);
+      assertLineCarriesHashes(lines[0], anchor, ddl, api);
+    }
   }
 
   const openapiVersion = extractOpenapiVersion(sources.openapi);
