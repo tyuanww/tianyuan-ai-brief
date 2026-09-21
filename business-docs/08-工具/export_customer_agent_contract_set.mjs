@@ -28,6 +28,8 @@ import {
   buildClosureContractFiles,
   OPS_LOOP_CONTRACT_PATHS,
   buildOpsLoopContractFiles,
+  COACH_PUBLISH_CONTRACT_PATHS,
+  buildCoachPublishContractFiles,
 } from "./build_customer_agent_backend_contract.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -279,14 +281,16 @@ export function loadContractSetFromCommit({
   let backendProfile = false;
   let closureProfile = false;
   let opsLoopProfile = false;
+  let coachPublishProfile = false;
   if (ownerProfile) {
     const profile = JSON.parse(utf8(readSource(OWNER_PROFILE_PATH), OWNER_PROFILE_PATH));
     if (Object.keys(profile).sort().join(",") !== "profile,schema"
         || profile.schema !== "customer-agent-contract-profile/v1"
-        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1"].includes(profile.profile)) {
+        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1"].includes(profile.profile)) {
       throw new Error("未知或不封闭的合同来源 profile");
     }
-    opsLoopProfile = profile.profile === "ops-loop-v1";
+    coachPublishProfile = profile.profile === "coach-publish-v1";
+    opsLoopProfile = coachPublishProfile || profile.profile === "ops-loop-v1";
     closureProfile = profile.profile === "backend-closure-v1";
     backendProfile = opsLoopProfile || closureProfile || profile.profile === "backend-synthetic-v1";
   }
@@ -295,7 +299,10 @@ export function loadContractSetFromCommit({
   }
   if (!closureProfile && !opsLoopProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", CLOSURE_CONTRACT_PATHS.increment])) throw new Error("拒绝降级 closure profile");
   if (!opsLoopProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", OPS_LOOP_CONTRACT_PATHS.database])) throw new Error("拒绝降级 ops-loop profile");
-  const sourcePaths = opsLoopProfile
+  if (!coachPublishProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", COACH_PUBLISH_CONTRACT_PATHS.database])) throw new Error("拒绝降级 coach-publish profile");
+  const sourcePaths = coachPublishProfile
+    ? { ...CONTRACT_SOURCE_PATHS, openapi: COACH_PUBLISH_CONTRACT_PATHS.openapi, database: COACH_PUBLISH_CONTRACT_PATHS.database }
+    : opsLoopProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: OPS_LOOP_CONTRACT_PATHS.openapi, database: OPS_LOOP_CONTRACT_PATHS.database }
     : closureProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: CLOSURE_CONTRACT_PATHS.openapi, database: CLOSURE_CONTRACT_PATHS.database }
@@ -387,8 +394,10 @@ export function loadContractSetFromCommit({
 
   if (opsLoopProfile) {
     const generated = buildOpsLoopContractFiles(readSource);
-    for (const key of ["database", "openapi"]) {
-      if (!buffers[key].equals(generated[key])) throw new Error(`运营闭环合同派生产物漂移：${key}`);
+    const opsLoopOpenapi = readSource(OPS_LOOP_CONTRACT_PATHS.openapi);
+    const opsLoopDatabase = readSource(OPS_LOOP_CONTRACT_PATHS.database);
+    for (const [key, actual] of [["database", opsLoopDatabase], ["openapi", opsLoopOpenapi]]) {
+      if (!actual.equals(generated[key])) throw new Error(`运营闭环合同派生产物漂移：${key}`);
     }
     const increment = utf8(readSource(OPS_LOOP_CONTRACT_PATHS.increment), "运营闭环合同");
     if (!/FROZEN · NOT EXPORTED · NOT INTAKE/.test(increment)) {
@@ -396,11 +405,32 @@ export function loadContractSetFromCommit({
     }
     for (const [anchor, ddl, api] of [
       ["**直接前序机器合同：**", sha256(readSource(CLOSURE_CONTRACT_PATHS.database)), sha256(readSource(CLOSURE_CONTRACT_PATHS.openapi))],
-      ["**DEV-M2 机器合同增量：**", databaseHash, openapiHash],
-      ["**实际产物必须精确匹配：**", databaseHash, openapiHash],
+      ["**DEV-M2 机器合同增量：**", sha256(opsLoopDatabase), sha256(opsLoopOpenapi)],
+      ["**实际产物必须精确匹配：**", sha256(opsLoopDatabase), sha256(opsLoopOpenapi)],
     ]) {
       const lines = linesForAnchor(increment, "运营闭环合同", anchor);
       if (lines.length !== 1) throw new Error(`运营闭环合同声明必须唯一：${anchor}`);
+      hashPairFromLine(lines[0], anchor);
+      assertLineCarriesHashes(lines[0], anchor, ddl, api);
+    }
+  }
+
+  if (coachPublishProfile) {
+    const generated = buildCoachPublishContractFiles(readSource);
+    for (const key of ["database", "openapi"]) {
+      if (!buffers[key].equals(generated[key])) throw new Error(`话术师发布合同派生产物漂移：${key}`);
+    }
+    const increment = utf8(readSource(COACH_PUBLISH_CONTRACT_PATHS.increment), "话术师发布合同");
+    if (!/FROZEN · NOT EXPORTED · NOT INTAKE/.test(increment)) {
+      throw new Error("话术师发布合同未冻结");
+    }
+    for (const [anchor, ddl, api] of [
+      ["**直接前序机器合同：**", sha256(readSource(OPS_LOOP_CONTRACT_PATHS.database)), sha256(readSource(OPS_LOOP_CONTRACT_PATHS.openapi))],
+      ["**DEV-M3 机器合同增量：**", databaseHash, openapiHash],
+      ["**实际产物必须精确匹配：**", databaseHash, openapiHash],
+    ]) {
+      const lines = linesForAnchor(increment, "话术师发布合同", anchor);
+      if (lines.length !== 1) throw new Error(`话术师发布合同声明必须唯一：${anchor}`);
       hashPairFromLine(lines[0], anchor);
       assertLineCarriesHashes(lines[0], anchor, ddl, api);
     }

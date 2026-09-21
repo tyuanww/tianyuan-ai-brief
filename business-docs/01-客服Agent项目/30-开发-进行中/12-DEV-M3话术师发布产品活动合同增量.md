@@ -1,10 +1,16 @@
 # DEV-M3 话术师发布产品/活动合同增量
 
-> **状态：** `DRAFT · NOT EXPORTED · NOT INTAKE · SYNTHETIC DEVELOPMENT ONLY`
+> **状态：** `FROZEN · NOT EXPORTED · NOT INTAKE · SYNTHETIC DEVELOPMENT ONLY`
 > **适用里程碑：** `DEV-M3`（能力合同；不自动放行真实飞书、真实数据、部署、Pilot 或付费）
 > **父基线：** 产品仓已消费 `cs-ai-c11-openapi-1.14.0-schema-1.18-260ef224c534`。OpenAPI 1.14.0 / schema.v1.18。
 > **G0 / Ddev：** 既有签发保持。本文件不重新签发，也不把 `runtime_activated` 改为 true。
 > **产品仓事实：** `tyuanww/customer-agent-prototype` `main@4c1d87a`（0.3.18）。桌面 `contentPublishGate` 已允许 coach 发产品/活动；`POST /v1/content/publish` 与 `publish_content_release` 仍一期仅 Owner。
+
+**直接前序机器合同：** DDL `5713f80e9abfd72592ad49955efb83cd8498ce9cd6c7be52b96c57bcde836caa` / OpenAPI `39f69edfdbffcad6a57d3e9fc43e1f6a3cbdc1e8fdd951e30bdbbfe97eb3e394`。
+
+**DEV-M3 机器合同增量：** DDL `7bfa432637b8fcf07668e3c308cd00616869097c04d6951944dbdc26f2a61a34` / OpenAPI `ab328c09293df5b534594f46469381b312f8aa3644fab214ac7278fe4f91435e`。
+
+**实际产物必须精确匹配：** DDL `7bfa432637b8fcf07668e3c308cd00616869097c04d6951944dbdc26f2a61a34` / OpenAPI `ab328c09293df5b534594f46469381b312f8aa3644fab214ac7278fe4f91435e`。
 
 固定生成器在 `ops-loop-v1` 之上追加 `coach-publish-candidate`，产出 OpenAPI 1.15.0 / schema.v1.19。不改 20-设计冻结的 OpenAPI 1.11.0 与 `33-schema-v1-草案.sql`。DDL 是 clean-install reference，产品以不可变新增 migration 接收。回滚仍仅 Owner。
 
