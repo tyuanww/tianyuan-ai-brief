@@ -478,13 +478,13 @@ test("当前 29/29 Menokin 真源动态导出七条状态轴、正式 B 与已�
   assert.deepEqual(status.developmentProgress, {
     category: "active",
     state: "开发中",
-    detail: "DEV-M1 · COMPLETE；W0、W1、W2、W3、W4、W5 已完成。产品 21c6fc5 的009真实比较为基线35/50、候选50/50，15改善、0回退，清理通过；16项引导式处理判断经负责人接受，业务/QA复核及T6签发已记录。原机器NOT_EVALUATED保留。下一动作：准备正式身份与内容运行链实施计划，开工、desktop adapter、部署与Pilot仍未放行",
+    detail: "DEV-M1 · COMPLETE；W0、W1、W2、W3、W4、W5 已完成。产品 21c6fc5 的009真实比较为基线35/50、候选50/50，15改善、0回退，清理通过；16项引导式处理判断经负责人接受，业务/QA复核及T6签发已记录。原机器NOT_EVALUATED保留。产品仓 af8a7ae（0.3.17）已落地五项工作台与 dual-review。下一动作：评审 DEV-M2 运营闭环合同增量并 export → 产品仓 intake，开工、desktop adapter、部署与Pilot仍未放行",
     milestone: "DEV-M1",
     milestoneState: "COMPLETE",
     completedSlices: ["W0", "W1", "W2", "W3", "W4", "W5"],
     nextSlice: "",
     nextSliceName: "",
-    nextAction: "准备正式身份与内容运行链实施计划，开工、desktop adapter、部署与Pilot仍未放行",
+    nextAction: "评审 DEV-M2 运营闭环合同增量并 export → 产品仓 intake，开工、desktop adapter、部署与Pilot仍未放行",
     gateStatusLabel: "",
     evidenceIds: [],
   });

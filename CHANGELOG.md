@@ -2,6 +2,16 @@
 
 本文件记录治理工具与合同候选的版本变化，不代表客服产品版本、阶段签发或生产上线。既有发布历史保留在 Git 与对应阶段记录中。
 
+## [5.32.3] - 2026-09-21
+
+### Added
+
+- DEV-M2 运营闭环合同增量 DRAFT：冻结 SOP 写库、话术单条改删、`POST /v1/inaccuracy-reports`、`GET /v1/metrics/retrieval`、软件目录 HTTP。尚未写入 OpenAPI/schema，未 export，未 intake。
+
+### Changed
+
+- G0 产品开发下一动作改为评审该增量并 export → 产品仓 intake。既有 G0/Ddev Pass 不重签。
+
 ## [5.32.2] - 2026-09-09
 
 ### Added

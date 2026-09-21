@@ -153,7 +153,7 @@ try {
     );
     assert.match(
       bodyText,
-      /准备正式身份与内容运行链实施计划.*待单独授权/
+      /评审 DEV-M2 运营闭环合同增量.*待单独授权/
     );
     assert.match(bodyText, /下一里程碑与真实运行能力未自动放行/);
     assert.doesNotMatch(bodyText, /DEV-M0 Ready · 未开始|代码(?:开发)?尚?未开始/);
