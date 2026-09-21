@@ -40,7 +40,7 @@
     "test:boundary-integration": "node --test tests/public-project-boundary.integration.mjs",
     "test:layout-ui": "node --test tests/layout-type-contract.ui.mjs",
     "test:design-contracts": "npm run test:architecture-contract && npm run check:arch-diagrams",
-    "test:machine-contracts": "npm run lint:openapi && npm run test:sql-grammar && npm run test:owner-acceptance-contract && npm run check:owner-contract && npm run lint:owner-openapi && npm run test:backend-candidate && npm run check:backend-contract && npm run lint:backend-openapi",
+    "test:machine-contracts": "npm run lint:openapi && npm run test:sql-grammar && npm run test:owner-acceptance-contract && npm run check:owner-contract && npm run lint:owner-openapi && npm run test:backend-candidate && npm run check:backend-contract && npm run lint:backend-openapi && npm run test:ops-loop-candidate && npm run check:ops-loop-contract && npm run lint:ops-loop-openapi",
     "test:owner-acceptance-contract": "node --test tests/customer-agent-owner-acceptance.registry.test.mjs",
     "test:owner-acceptance:pg15": "node --test tests/customer-agent-owner-acceptance.pg15.mjs",
     "test:business": "npm run check:business-sources && node ../business-docs/08-工具/test_customer_agent_prd.mjs --round=ci && node ../business-docs/08-工具/test_customer_agent_hub.mjs --round=ci && node ../business-docs/08-工具/test_customer_agent_meeting.mjs --round=ci",
@@ -53,7 +53,10 @@
     "test:backend-candidate": "node tests/backend-runtime-candidate.mjs",
     "test:backend-candidate:pg": "node tests/backend-runtime-candidate.pg.mjs",
     "check:backend-contract": "node ../business-docs/08-工具/build_customer_agent_backend_contract.mjs --check && node --test tests/backend-contract.test.mjs",
-    "lint:backend-openapi": "redocly lint ../business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.13.yaml"
+    "lint:backend-openapi": "redocly lint ../business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.13.yaml",
+    "test:ops-loop-candidate": "node tests/ops-loop-candidate.mjs",
+    "check:ops-loop-contract": "node ../business-docs/08-工具/build_customer_agent_backend_contract.mjs --check-ops-loop",
+    "lint:ops-loop-openapi": "redocly lint ../business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.14.yaml"
   },
   "devDependencies": {
     "@libpg-query/parser": "17.6.10",

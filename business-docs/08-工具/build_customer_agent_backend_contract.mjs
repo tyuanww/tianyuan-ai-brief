@@ -80,13 +80,63 @@ export function buildClosureContractFiles(readSource) {
   return { openapi: base.openapi, database };
 }
 
+export const OPS_LOOP_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.14.yaml`,
+  database: `${development}/schema.v1.18.sql`,
+  increment: `${development}/11-DEV-M2运营闭环合同增量.md`,
+});
+export const OPS_LOOP_SOURCES = Object.freeze({
+  openapi: `${development}/ops-loop-candidate/openapi.delta.json`,
+  storage: `${development}/ops-loop-candidate/storage.delta.sql`,
+});
+export function buildOpsLoopContractFiles(readSource) {
+  const base = buildClosureContractFiles(readSource);
+  const delta = JSON.parse(readSource(OPS_LOOP_SOURCES.openapi));
+  let openapi = base.openapi.toString('utf8');
+  const insert = (anchor, value) => {
+    if (openapi.split(anchor).length !== 2) throw new Error(`Non-unique ops-loop anchor: ${anchor}`);
+    openapi = openapi.replace(anchor, anchor + value);
+  };
+  if (!openapi.includes('  version: 1.13.0\n')) throw new Error('Ops-loop predecessor must be 1.13.0');
+  openapi = openapi.replace('  version: 1.13.0\n', '  version: 1.14.0\n');
+  for (const [route, item] of Object.entries(delta.paths)) {
+    if (openapi.includes(`  ${route}:`) || openapi.includes(`  ${JSON.stringify(route)}:`)) {
+      throw new Error(`Ops-loop route collision: ${route}`);
+    }
+    const operations = Object.fromEntries(Object.entries(item).map(([method, operation]) => {
+      if (!['get','post','put','patch','delete','options','head','trace'].includes(method)) throw new Error(`Unsupported path item: ${method}`);
+      return [method, {...operation, security: operation.security ?? delta.security}];
+    }));
+    insert('paths:\n', `  ${JSON.stringify(route)}: ${JSON.stringify(operations)}\n`);
+  }
+  for (const [section, members] of Object.entries(delta.components)) {
+    if (!['schemas','securitySchemes'].includes(section)) throw new Error(`Unsupported components: ${section}`);
+    for (const [name, value] of Object.entries(members)) {
+      if (!/^[A-Za-z][A-Za-z0-9]*$/.test(name) || openapi.includes(`    ${name}:`)) throw new Error(`Ops-loop component collision: ${name}`);
+      insert(`  ${section}:\n`, `    ${name}: ${JSON.stringify(value)}\n`);
+    }
+  }
+  for (const tag of delta.tags) insert('\ntags:\n', `  - ${JSON.stringify(tag)}\n`);
+  openapi += '\nx-ops-loop-development: '+JSON.stringify({status:'SYNTHETIC_DEVELOPMENT_ONLY',runtime_activated:false,sqlContract:'schema.v1.18',latestYml:false})+'\n';
+  const storage = readSource(OPS_LOOP_SOURCES.storage);
+  const database = Buffer.concat([
+    Buffer.from('-- schema.v1.18 — ops-loop clean-install reference\n'),
+    base.database,
+    Buffer.from(`\n-- BEGIN OPS LOOP ${digest(storage)}\n`), storage,
+    Buffer.from('-- END OPS LOOP\n'),
+  ]);
+  return { openapi: Buffer.from(openapi), database };
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  if (args.length !== 1 || !['--write','--check','--write-closure','--check-closure'].includes(args[0])) throw new Error('Use --write or --check');
+  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop'];
+  if (args.length !== 1 || !allowed.includes(args[0])) throw new Error('Use --write, --check, --write-closure, --check-closure, --write-ops-loop or --check-ops-loop');
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const opsLoop = args[0].endsWith('-ops-loop');
   const closure = args[0].endsWith('-closure');
-  const files = (closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
-  const paths = closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
+  const files = (opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
+  const paths = opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
   for (const [key,bytes] of Object.entries(files)) {
     const target = path.join(root,paths[key]);
     if (args[0].startsWith('--write')) writeFileSync(target,bytes);
