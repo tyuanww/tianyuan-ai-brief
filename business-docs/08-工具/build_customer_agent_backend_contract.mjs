@@ -89,6 +89,55 @@ export const OPS_LOOP_SOURCES = Object.freeze({
   openapi: `${development}/ops-loop-candidate/openapi.delta.json`,
   storage: `${development}/ops-loop-candidate/storage.delta.sql`,
 });
+export const COACH_PUBLISH_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.15.yaml`,
+  database: `${development}/schema.v1.19.sql`,
+  increment: `${development}/12-DEV-M3话术师发布产品活动合同增量.md`,
+});
+export const COACH_PUBLISH_SOURCES = Object.freeze({
+  storage: `${development}/coach-publish-candidate/storage.delta.sql`,
+});
+const PUBLISH_OWNER_ONLY = `      operationId: publishContent
+      summary: 将 staged 批次发布为新的 current release
+      description: |
+        一期仅 Owner。调用受控 publish_content_release 事务并使用全站 try-lock；第二个
+        并发发布立即返回 409。发布必须 CAS 校验 base_release_id，原子写入四域绑定、内容
+        快照、current、公告与审计。被本批次绑定的域按全域快照替换，不保留该域旧来源残行。
+        只发布 \`quality_status=clean AND quality_gate_passed=true\` 的行，且二次计算
+        \`SHA-256(JCS(normalized governance snapshot))\`；quarantined 行保留在导入证据中而不进 release。
+      x-required-roles: [owner]
+      x-phase1-owner-only: true
+`;
+const PUBLISH_COACH_PRODUCT = `      operationId: publishContent
+      summary: 将 staged 批次发布为新的 current release
+      description: |
+        Owner 可发任意 staged 批次。coach 仅可发产品/活动：bindings 与 staging 行均为 product 或 campaign，
+        且 title/answer_text 不含「过敏」「赔付」。售后及过敏/赔付仍仅 Owner。回滚仍仅 Owner。
+        调用受控 publish_content_release 事务并使用全站 try-lock；第二个并发发布立即返回 409。
+        发布必须 CAS 校验 base_release_id，原子写入四域绑定、内容快照、current、公告与审计。
+        被本批次绑定的域按全域快照替换，不保留该域旧来源残行。
+        只发布 \`quality_status=clean AND quality_gate_passed=true\` 的行，且二次计算
+        \`SHA-256(JCS(normalized governance snapshot))\`；quarantined 行保留在导入证据中而不进 release。
+      x-required-roles: [coach, owner]
+`;
+export function buildCoachPublishContractFiles(readSource) {
+  const base = buildOpsLoopContractFiles(readSource);
+  let openapi = base.openapi.toString('utf8');
+  if (!openapi.includes('  version: 1.14.0\n')) throw new Error('Coach-publish predecessor must be 1.14.0');
+  openapi = openapi.replace('  version: 1.14.0\n', '  version: 1.15.0\n');
+  if (openapi.split(PUBLISH_OWNER_ONLY).length !== 2) throw new Error('publish owner-only block missing or non-unique');
+  openapi = openapi.replace(PUBLISH_OWNER_ONLY, PUBLISH_COACH_PRODUCT);
+  openapi += '\nx-coach-publish-development: '+JSON.stringify({status:'SYNTHETIC_DEVELOPMENT_ONLY',runtime_activated:false,sqlContract:'schema.v1.19',coachProductCampaign:true})+'\n';
+  const storage = readSource(COACH_PUBLISH_SOURCES.storage);
+  const database = Buffer.concat([
+    Buffer.from('-- schema.v1.19 — coach product/campaign publish clean-install reference\n'),
+    base.database,
+    Buffer.from(`\n-- BEGIN COACH PUBLISH ${digest(storage)}\n`), storage,
+    Buffer.from('-- END COACH PUBLISH\n'),
+  ]);
+  return { openapi: Buffer.from(openapi), database };
+}
+
 export function buildOpsLoopContractFiles(readSource) {
   const base = buildClosureContractFiles(readSource);
   const delta = JSON.parse(readSource(OPS_LOOP_SOURCES.openapi));
@@ -130,13 +179,14 @@ export function buildOpsLoopContractFiles(readSource) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop'];
-  if (args.length !== 1 || !allowed.includes(args[0])) throw new Error('Use --write, --check, --write-closure, --check-closure, --write-ops-loop or --check-ops-loop');
+  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish'];
+  if (args.length !== 1 || !allowed.includes(args[0])) throw new Error('Use --write, --check, --write-closure, --check-closure, --write-ops-loop, --check-ops-loop, --write-coach-publish or --check-coach-publish');
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const coachPublish = args[0].endsWith('-coach-publish');
   const opsLoop = args[0].endsWith('-ops-loop');
   const closure = args[0].endsWith('-closure');
-  const files = (opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
-  const paths = opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
+  const files = (coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
+  const paths = coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
   for (const [key,bytes] of Object.entries(files)) {
     const target = path.join(root,paths[key]);
     if (args[0].startsWith('--write')) writeFileSync(target,bytes);
