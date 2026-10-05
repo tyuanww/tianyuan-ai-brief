@@ -1,7 +1,8 @@
+import { SECURITY_ARCHIVE_NAME } from "../scripts/build-security-maintenance-archive.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { mergeMeetingState } from "../../archive/2026-08-09-ai-project-brief-security-maintenance/js/modules/meeting-state.js";
+const { mergeMeetingState } = await import(`../../archive/${SECURITY_ARCHIVE_NAME}/js/modules/meeting-state.js`);
 
 function contentFixture(schema = 3) {
   return {

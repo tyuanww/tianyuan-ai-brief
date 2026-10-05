@@ -97,6 +97,50 @@ export const COACH_PUBLISH_CONTRACT_PATHS = Object.freeze({
 export const COACH_PUBLISH_SOURCES = Object.freeze({
   storage: `${development}/coach-publish-candidate/storage.delta.sql`,
 });
+export const INTAKE_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.16.yaml`,
+  database: `${development}/schema.v1.20.sql`,
+  increment: `${development}/13-P2资料接入合同候选.md`,
+});
+export const INTAKE_SOURCES = Object.freeze({
+  openapi: `${development}/content-intake-candidate/openapi.delta.json`,
+  storage: `${development}/content-intake-candidate/storage.delta.sql`,
+});
+export const INTAKE_APPROVAL_PATH = 'business-docs/01-客服Agent项目/90-评审/2026-10-04_P2内容接入合同批准.md';
+
+export function buildIntakeContractFiles(readSource) {
+  const base = buildCoachPublishContractFiles(readSource);
+  const delta = JSON.parse(readSource(INTAKE_SOURCES.openapi));
+  let openapi = base.openapi.toString('utf8');
+  const insert = (anchor, value) => {
+    if (openapi.split(anchor).length !== 2) throw new Error(`Non-unique intake anchor: ${anchor}`);
+    openapi = openapi.replace(anchor, anchor + value);
+  };
+  if (!openapi.includes('  version: 1.15.0\n')) throw new Error('Intake predecessor must be 1.15.0');
+  openapi = openapi.replace('  version: 1.15.0\n', '  version: 1.16.0\n');
+  for (const [route, item] of Object.entries(delta.paths)) {
+    if (!route.startsWith('/v1/intake/') || openapi.includes(`  ${route}:`) || openapi.includes(`  ${JSON.stringify(route)}:`)) throw new Error(`Intake route collision or namespace: ${route}`);
+    const operations = Object.fromEntries(Object.entries(item).map(([method, operation]) => {
+      if (!['get','post','put','patch','delete'].includes(method)) throw new Error(`Unsupported intake method: ${method}`);
+      return [method, {...operation, security: delta.security}];
+    }));
+    insert('paths:\n', `  ${JSON.stringify(route)}: ${JSON.stringify(operations)}\n`);
+  }
+  for (const [name, value] of Object.entries(delta.components.schemas)) {
+    if (!/^Intake[A-Za-z0-9]+$/.test(name) || openapi.includes(`    ${name}:`)) throw new Error(`Intake schema collision: ${name}`);
+    insert('  schemas:\n', `    ${name}: ${JSON.stringify(value)}\n`);
+  }
+  for (const tag of delta.tags) insert('\ntags:\n', `  - ${JSON.stringify(tag)}\n`);
+  openapi += '\nx-content-intake-development: '+JSON.stringify({status:'SYNTHETIC_DEVELOPMENT_ONLY',runtime_activated:false,sqlContract:'schema.v1.20',transactionImplementationRequired:true,minimumSnapshotFormat:'intake-v2.1'})+'\n';
+  const storage = readSource(INTAKE_SOURCES.storage);
+  const database = Buffer.concat([
+    Buffer.from('-- schema.v1.20 — content-intake additive storage contract candidate\n'),
+    base.database,
+    Buffer.from(`\n-- BEGIN CONTENT INTAKE ${digest(storage)}\n`), storage,
+    Buffer.from('-- END CONTENT INTAKE\n'),
+  ]);
+  return {openapi:Buffer.from(openapi), database};
+}
 const PUBLISH_OWNER_ONLY = `      operationId: publishContent
       summary: 将 staged 批次发布为新的 current release
       description: |
@@ -179,14 +223,15 @@ export function buildOpsLoopContractFiles(readSource) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish'];
-  if (args.length !== 1 || !allowed.includes(args[0])) throw new Error('Use --write, --check, --write-closure, --check-closure, --write-ops-loop, --check-ops-loop, --write-coach-publish or --check-coach-publish');
+  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish','--write-intake','--check-intake'];
+  if (args.length !== 1 || !allowed.includes(args[0])) throw new Error(`Use exactly one of: ${allowed.join(', ')}`);
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   const coachPublish = args[0].endsWith('-coach-publish');
+  const intake = args[0].endsWith('-intake');
   const opsLoop = args[0].endsWith('-ops-loop');
   const closure = args[0].endsWith('-closure');
-  const files = (coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
-  const paths = coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
+  const files = (intake ? buildIntakeContractFiles : coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
+  const paths = intake ? INTAKE_CONTRACT_PATHS : coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
   for (const [key,bytes] of Object.entries(files)) {
     const target = path.join(root,paths[key]);
     if (args[0].startsWith('--write')) writeFileSync(target,bytes);

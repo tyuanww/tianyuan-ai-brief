@@ -16,7 +16,7 @@
 | `test_customer_agent_hub.mjs` | 执行中心五视口、筛选、复制、打印、深色与无障碍验收 |
 | `test_customer_agent_meeting.mjs` | 启动会主屏的泄漏门禁、五视口、交互、离线、打印与无障碍验收 |
 | `verify_customer_agent_pg15.mjs` | 在临时 PostgreSQL 15 cluster 中预检当前 reference DDL；只用 Unix socket、禁用 TCP，结束时删除 PGDATA/WAL，结果写入已忽略的 `output/` |
-| `build_customer_agent_backend_contract.mjs` | 从固定 owner 基线及候选增量生成 OpenAPI 1.13 / schema.v1.16；`--write` 生成、`--check` 校验；不覆盖旧版本 |
+| `build_customer_agent_backend_contract.mjs` | 从固定 owner 基线追加生成各版合同；`--write-intake` / `--check-intake` 对应 P2 候选 OpenAPI 1.16.0 / schema.v1.20（未冻结）；不覆盖旧版本 |
 | `build_customer_agent_owner_contract.mjs` | 确定性聚合承接 SQL 与 OpenAPI；`--write` 生成、`--check` 验证；导出器从同一 Git commit 重建比较 |
 | `export_customer_agent_contract_set.mjs` | 只从调用方指定的完整 40 位来源 commit 读取 OpenAPI / DDL 与规范锚点，校验双哈希后在 ignored `output/` 原子生成只读、不可覆盖的版本化合同集；不读脏工作树、不写产品仓 |
 | `verify_customer_agent_g009_intake.mjs` | 校验 G0-09 四域接收清单的公开安全投影；允许预填态盘点，最终用 `--require-ready` 拒绝缺域、证据错配、质量分母错误和敏感值 |
@@ -208,3 +208,9 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 - 公共 Pages 发布已收尾历史 Web，并仅复制通过脱敏门禁的 `09` 启动会生成视图到 `/customer-agent/`；`00`–`08`、源 Markdown、证据和 QA 产物仍不发布。
 
 返回 [`业务文档地图`](../README.md)。
+
+### P2 资料接入合同候选
+
+规范和运行义务见 [P2 合同候选](../01-客服Agent项目/30-开发-进行中/13-P2资料接入合同候选.md)。`npm --prefix sites run test:intake-contract` 校验 schema、生成与临时 Git 导出门；`npm --prefix sites run test:intake-contract:pg` 在隔离 PG15 Unix socket 验证存储约束及查询计划，接受显式 `PG_BIN`。该命令不连接现有数据库。
+
+`content-intake-v2` export 要求本次独立批准和精确成对哈希；2026-10-05 当前工作树的合同已冻结，profile 选择 `content-intake-v2`，但尚未提交/export/intake。DRAFT、缺少本次批准或哈希漂移仍拒绝；合成负例显式构造 DRAFT，不依赖当前仓库生命周期。最终 bundle 的三方 EVD 与 Git 门不由合同冻结代替。参考 DDL 无新运行角色权限；产品事务、旧写隔离和端到端验收按版本化 intake 后实施。

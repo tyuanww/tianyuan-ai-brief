@@ -1,8 +1,9 @@
+import { SECURITY_ARCHIVE_NAME } from "../scripts/build-security-maintenance-archive.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
 import { JSDOM } from "jsdom";
-import { createHtmlPolicy } from "../../archive/2026-08-09-ai-project-brief-security-maintenance/js/modules/html-policy.js";
+const { createHtmlPolicy } = await import(`../../archive/${SECURITY_ARCHIVE_NAME}/js/modules/html-policy.js`);
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
 const policy = createHtmlPolicy(dom.window);

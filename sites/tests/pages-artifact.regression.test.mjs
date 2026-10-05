@@ -15,7 +15,9 @@ import {
 import {
   BASE_ARCHIVE_ROOT,
   BASE_MANIFEST_PATH,
+  DOMPURIFY_VERSION,
   SECURITY_ARCHIVE_ROOT,
+  SECURITY_MANIFEST_PATH,
 } from "../scripts/build-security-maintenance-archive.mjs";
 
 const siteRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -66,6 +68,16 @@ test("Pages artifact 发布历史 Web 与脱敏启动会，PRD / Hub 仍降级",
   const parent = await mkdtemp(path.join(tmpdir(), "pages-artifact-"));
   const outputPath = path.join(parent, "pages");
   await stagePagesArtifact({ outputPath });
+
+  const purifierPath = `vendor/dompurify-${DOMPURIFY_VERSION}.es.mjs`;
+  assert.deepEqual(
+    await readFile(path.join(outputPath, purifierPath)),
+    await readFile(path.join(siteRoot, "node_modules/dompurify/dist/purify.es.mjs")),
+  );
+  for (const bundle of ["js/app.bundle.js", "js/app.offline.bundle.js"]) {
+    assert.deepEqual(await readFile(path.join(outputPath, bundle)), await readFile(path.join(archiveRoot, bundle)));
+  }
+  await assert.rejects(stat(path.join(outputPath, "vendor/dompurify-3.4.13.es.mjs")), { code: "ENOENT" });
 
   const index = await readFile(path.join(outputPath, "index.html"), "utf8");
   assert.doesNotMatch(index, /business-docs|current\/customer-agent/);
@@ -125,11 +137,12 @@ test("7 月 31 日历史站点与归档清单完全一致", async () => {
   assert.equal(result.treeSha256, "b6a18b2ef16b335f0f9224e776b6a36299be5fb73fbbe7330ddb188282cef418");
 });
 
-test("Pages 默认发布 8 月 9 日安全维护快照", async () => {
+test("Pages 默认构建生成器选定的当前安全维护快照", async () => {
   const result = await assertArchivedSiteFrozen();
-  assert.equal(result.files.length, 30);
-  assert.equal(result.entrySha256, "602a2118fd07aa0e9a464f4aa1aed96e908f04662cd1cd48fcc4290c3415a520");
-  assert.equal(result.treeSha256, "0edec737cb789e7ce3a549367db5ab5d841e2c796977d54e5205da591f9f47fc");
+  const manifest = JSON.parse(await readFile(SECURITY_MANIFEST_PATH, "utf8"));
+  assert.equal(result.files.length, manifest.fileCount);
+  assert.equal(result.entrySha256, manifest.entrySha256);
+  assert.equal(result.treeSha256, manifest.treeSha256);
 });
 
 test("发布副本降级指向仓库外的 Markdown 链接，保留公开 Web 内部链接", async () => {

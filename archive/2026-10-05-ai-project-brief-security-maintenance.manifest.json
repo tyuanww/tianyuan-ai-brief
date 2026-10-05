@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 2,
+  "status": "archived-security-maintenance",
+  "snapshotDate": "2026-10-05",
+  "businessSnapshotDate": "2026-07-31",
+  "derivedFrom": "2026-07-31-ai-project-brief",
+  "derivedFromManifestSha256": "2329fd56c22b746f4575096cc5efd30c967f72e3ed7eda0356bc26d9228d5879",
+  "maintenanceType": "security-and-public-redaction",
+  "releaseId": "shell-v3-cf071103fc67",
+  "contentVersion": "5.25.1",
+  "publicUrl": "https://weiweity.github.io/tianyuan-ai-brief/",
+  "runtimeDependencies": {
+    "dompurify": "3.4.16",
+    "mermaid": "10.9.8"
+  },
+  "sourceBusinessContentSha256": "b883c1a1a75610a03357bdace2ce237b1ed25dc390f57a16a8a5cf16ec656286",
+  "publicContentSha256": "b0ffb361be0e3a30eaf7fc13cb606ba43ff67b52fabf4f40d67147b05e5042e6",
+  "redactions": [
+    "historical-exact-costs"
+  ],
+  "allowedDifferences": [
+    "ARCHITECTURE.md",
+    "SECURITY-MAINTENANCE.md",
+    "data/content.json",
+    "data/release.json",
+    "index.html",
+    "js/app.bundle.js",
+    "js/app.offline.bundle.js",
+    "js/bootstrap.js",
+    "js/modules/html-policy.js",
+    "vendor/dompurify-3.4.12.es.mjs",
+    "vendor/dompurify-3.4.16.es.mjs",
+    "vendor/mermaid-10.9.6.min.js",
+    "vendor/mermaid-10.9.8.min.js"
+  ],
+  "fileCount": 30,
+  "entrySha256": "7de49dfb8a0282a07a043d92203cc90c6a79e11290c2c93e2c3bb48cd64ddd29",
+  "treeSha256": "5394cb896bd16105ddce623bd7734d8091220c07fc45cc0d275d2a42fb604ccb"
+}

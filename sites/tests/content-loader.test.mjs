@@ -1,8 +1,9 @@
+import { SECURITY_ARCHIVE_NAME } from "../scripts/build-security-maintenance-archive.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createContentLoader } from "../../archive/2026-08-09-ai-project-brief-security-maintenance/js/modules/content-loader.js";
-import { sha256 } from "../../archive/2026-08-09-ai-project-brief-security-maintenance/js/modules/decision-model.js";
+const { createContentLoader } = await import(`../../archive/${SECURITY_ARCHIVE_NAME}/js/modules/content-loader.js`);
+const { sha256 } = await import(`../../archive/${SECURITY_ARCHIVE_NAME}/js/modules/decision-model.js`);
 
 function memoryStorage() {
   const values = new Map();

@@ -4,6 +4,8 @@
 > **进入与推进证据：** 设计评审、G0 / Ddev、DEV-M0 / DEV-M1 退出证据；产品仓 comparison v2 合同 PR #23（`main@b0a52d9`）与 CI run `33889553752`；仓外 `EVD-G1A-DATA-01`、`EVD-G1A-EVALSET-01`、`EVD-G1A-BLIND-01`、`EVD-G1A-COMPARISON-02`、`EVD-G1A-HOST-01`、`EVD-G1A-PACKAGE-01`、`EVD-G1A-RUN-01`、`EVD-G1A-CLEANUP-01`
 > **下一动作：** [DEV-M3 话术师发布产品/活动](12-DEV-M3话术师发布产品活动合同增量.md) 机器合同 OpenAPI 1.15.0 / schema.v1.19 已生成，尚未 export / intake。DEV-M2 1.14.0 已在产品仓消费。G0/Ddev 既有 Pass 不因本增量重签。T4/T5 历史状态见正文，不自动签发 T6。
 
+当前新增合同：[P2 资料接入、权限与人工审批](13-P2资料接入合同候选.md)（OpenAPI 1.16.0 / schema.v1.20，2026-10-05 已按本次用户授权冻结，仅限合成开发，未提交/导出/接入）。本次[合同批准记录](../90-评审/2026-10-04_P2内容接入合同批准.md)不代替最终 bundle 的三方发布 EVD。其前序 1.15.0 已有不可变 export；本页上方及 DEV-M3 条目的 NOT EXPORTED 是保留的历史文字，不能代替具体合同集核验。
+
 目录名保持技术第 4 关兼容入口。本项目记录仓只保存阶段、决定和证据；产品代码继续只在独立产品实施仓中维护。`DEV-M0`、`DEV-M1` W0～W5 与 G1A-E0 T1～T3 退出证据已完成；comparison v2 合同已通过 PR #23 合并。仓外 T4 输入包以四个 0600 成员装配，实际产品解析器静态校验通过；宿主网络沙箱与异常残留回收先以纯合成数据预演通过。首次 T5 在任何 case 执行前因临时目录别名与 sandbox profile 不一致而失败关闭，RUN/CLEANUP 证据确认 0 条评测与 0 残留；共享来源修复经 PR #24 合并至 `main@4dbee4b`，合并后 CI run `33930030132` 三路全绿；仍只具备合成验证证据，后续 Attempt06/07 仍失败关闭，四域业务版本已确认；33 条工程风险记录待负责人承接合同转换，结果仍固定为 `NOT_SIGNED / NOT_EVALUATED`，不自动放行真实 G1a、`DEV-M2`、飞书运行接入、desktop adapter、部署、Pilot 或付费调用。
 
 - [DEV-M2 运营闭环合同增量](11-DEV-M2运营闭环合同增量.md)：已生成并被产品仓 intake（OpenAPI 1.14.0 / schema.v1.18）。

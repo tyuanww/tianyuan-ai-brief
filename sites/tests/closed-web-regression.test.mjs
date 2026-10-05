@@ -1,11 +1,12 @@
+import { SECURITY_ARCHIVE_NAME } from "../scripts/build-security-maintenance-archive.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { clearMeetingBlockState } from "../../archive/2026-08-09-ai-project-brief-security-maintenance/js/modules/meeting-state.js";
-import { createTabHistory, tabIdFromHash } from "../../archive/2026-08-09-ai-project-brief-security-maintenance/js/modules/tab-history.js";
+const { clearMeetingBlockState } = await import(`../../archive/${SECURITY_ARCHIVE_NAME}/js/modules/meeting-state.js`);
+const { createTabHistory, tabIdFromHash } = await import(`../../archive/${SECURITY_ARCHIVE_NAME}/js/modules/tab-history.js`);
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (relativePath) => readFile(path.join(root, relativePath), "utf8");
@@ -75,8 +76,8 @@ function fakeWindow(initialUrl) {
 
 test("历史页首屏强标识非当前 SSOT，并提供三个现行本地入口", async () => {
   const [index, content] = await Promise.all([
-    read("../archive/2026-08-09-ai-project-brief-security-maintenance/index.html"),
-    read("../archive/2026-08-09-ai-project-brief-security-maintenance/data/content.json").then(JSON.parse),
+    read(`../archive/${SECURITY_ARCHIVE_NAME}/index.html`),
+    read(`../archive/${SECURITY_ARCHIVE_NAME}/data/content.json`).then(JSON.parse),
   ]);
   assert.match(index, /class="archive-guard"/);
   assert.match(index, /历史快照 · 非当前 SSOT/);
@@ -91,7 +92,7 @@ test("历史页首屏强标识非当前 SSOT，并提供三个现行本地入口
 });
 
 test("导航提示区分桌面键盘与手机触控能力", async () => {
-  const [index, css] = await Promise.all([read("../archive/2026-08-09-ai-project-brief-security-maintenance/index.html"), read("../archive/2026-08-09-ai-project-brief-security-maintenance/css/app.css")]);
+  const [index, css] = await Promise.all([read(`../archive/${SECURITY_ARCHIVE_NAME}/index.html`), read(`../archive/${SECURITY_ARCHIVE_NAME}/css/app.css`)]);
   assert.match(index, /nav-hint-desktop">点击页签或 ← → 翻页/);
   assert.match(index, /nav-hint-touch">左右滑翻页/);
   assert.match(css, /\.nav-hint-touch\s*\{\s*display:\s*none;/s);
@@ -199,7 +200,7 @@ test("hash 只接受已知 Tab，不抢占 #stage 等页内锚点", () => {
 });
 
 test("app.js 保持 UI 编排边界，新状态逻辑留在独立模块", async () => {
-  const app = await read("../archive/2026-08-09-ai-project-brief-security-maintenance/js/app.js");
+  const app = await read(`../archive/${SECURITY_ARCHIVE_NAME}/js/app.js`);
   assert.ok(app.split("\n").length < 2700, `app.js 行数过高：${app.split("\n").length}`);
   assert.match(app, /\.\/modules\/tab-history\.js/);
   assert.match(app, /clearMeetingBlockState/);
