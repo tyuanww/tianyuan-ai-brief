@@ -214,3 +214,7 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 规范和运行义务见 [P2 合同候选](../01-客服Agent项目/30-开发-进行中/13-P2资料接入合同候选.md)。`npm --prefix sites run test:intake-contract` 校验 schema、生成与临时 Git 导出门；`npm --prefix sites run test:intake-contract:pg` 在隔离 PG15 Unix socket 验证存储约束及查询计划，接受显式 `PG_BIN`。该命令不连接现有数据库。
 
 `content-intake-v2` export 要求本次独立批准和精确成对哈希；2026-10-05 当前工作树的合同已冻结，profile 选择 `content-intake-v2`，但尚未提交/export/intake。DRAFT、缺少本次批准或哈希漂移仍拒绝；合成负例显式构造 DRAFT，不依赖当前仓库生命周期。最终 bundle 的三方 EVD 与 Git 门不由合同冻结代替。参考 DDL 无新运行角色权限；产品事务、旧写隔离和端到端验收按版本化 intake 后实施。
+
+### P2 使用资格上下文候选
+
+[使用资格上下文与词项预算](../01-客服Agent项目/30-开发-进行中/14-P2使用资格上下文合同候选.md)是新的 DRAFT 增量（OpenAPI 1.17.0 / schema.v1.21），未冻结或选入 export profile。生成/校验复用 `build_customer_agent_backend_contract.mjs --write-intake-usage / --check-intake-usage`；`test:intake-usage-contract` 验证实际 wire，`test:intake-usage-contract:pg` 复用原隔离 PG15 执行器并追加会话/上下文存储探针。旧 1.16 / 1.20 和其批准记录不变。新版本须单独冻结及版本化交接，不能通过修改 profile 省略批准。

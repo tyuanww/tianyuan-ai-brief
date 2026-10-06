@@ -6,6 +6,9 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 // Disposable Unix-socket-only PG15. Never inherit a user's database connection.
+const argsIn=process.argv.slice(2);
+assert.ok(argsIn.length===0 || (argsIn.length===1 && argsIn[0]==='--usage'),'only --usage is supported');
+const usage=argsIn[0]==='--usage';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const env={...process.env,PGCONNECT_TIMEOUT:'5'};
 for(const key of Object.keys(env)) if(key.startsWith('PG') && key!=='PGCONNECT_TIMEOUT') delete env[key];
@@ -13,7 +16,7 @@ const bin=process.env.PG_BIN || execFileSync('pg_config',['--bindir'],{encoding:
 const run=(name,args)=>execFileSync(path.join(bin,name),args,{cwd:root,encoding:'utf8',env,maxBuffer:8*1024*1024,timeout:60000,stdio:['ignore','pipe','pipe']});
 assert.match(run('postgres',['--version']),/PostgreSQL\) 15\./);
 const dir=mkdtempSync(path.join(tmpdir(),'intake-contract-'));
-const evidence=path.join(root,'output/content-intake-contract');mkdirSync(evidence,{recursive:true});
+const evidence=path.join(root,usage?'output/content-intake-usage-contract':'output/content-intake-contract');mkdirSync(evidence,{recursive:true});
 const args=['-X','-h',dir,'-p','55443','-d','postgres','-v','ON_ERROR_STOP=1'];
 const sql=q=>run('psql',[...args,'-Atc',q]).trim();
 const quote=v=>`'${String(v).replaceAll("'","''")}'`;
@@ -30,7 +33,7 @@ const insertCandidate=(id,source='source-a',scope='scope-a',object='object-a')=>
 try {
  run('initdb',['-D',path.join(dir,'data'),'-A','trust','--no-locale','--encoding=UTF8']);
  run('pg_ctl',['-D',path.join(dir,'data'),'-l',path.join(dir,'server.log'),'-o',`-k ${dir} -p 55443 -h ''`,'-w','start']);started=true;
- writeFileSync(path.join(evidence,'install.log'),run('psql',[...args,'-f','business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.20.sql']));checks++;
+ writeFileSync(path.join(evidence,'install.log'),run('psql',[...args,'-f',`business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.${usage?'21':'20'}.sql`]));checks++;
  const before=sql('SELECT count(*) FROM public.content_current');
  sql(`BEGIN;
  INSERT INTO backend_identity.subject_bindings(binding_id,provider,tenant,subject,user_id,subject_hash,enabled,role) VALUES
@@ -122,6 +125,40 @@ try {
  denies('lease cannot be lent to a different principal',lease+entitlement('agent','manager','release-a'),/foreign key/);
  denies('lease cannot cover a different release',lease+entitlement('manager','manager','release-b'),/ENTITLEMENT_LEASE_MISMATCH|foreign key/);
  sql('BEGIN; '+lease+entitlement('manager','manager','release-a')+'; ROLLBACK');checks++;
+ if(usage) {
+  const sessionHash='b'.repeat(64);
+  const session=`INSERT INTO backend_identity.login_requests(login_id,state_hash,client_challenge,status,issued_at,expires_at,binding_id,consumed_at)
+   VALUES ('login','${sessionHash}',repeat('A',43),'ready',clock_timestamp()-interval '2 minutes',clock_timestamp()+interval '1 minute','binding-manager',NULL);
+   INSERT INTO backend_identity.sessions VALUES ('${sessionHash}','login','binding-manager',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '10 minutes',NULL);
+   UPDATE backend_identity.login_requests SET status='consumed',consumed_at=clock_timestamp() WHERE login_id='login';`;
+  const context=`INSERT INTO content_intake.entitlement_contexts VALUES ('${hash}','${sessionHash}',ARRAY['product-a','product-b'],ARRAY[]::text[])`;
+  const setup=lease+entitlement('manager','manager','release-a')+';'+session;
+  // Deferred check proves both records are one atomic unit, without firing the
+  // unrelated synthetic parent release completeness trigger before rollback.
+  const required='SET CONSTRAINTS content_intake.entitlement_context_required IMMEDIATE';
+  denies('new entitlement cannot commit without context',lease+entitlement('manager','manager','release-a')+';'+required,/ENTITLEMENT_CONTEXT_REQUIRED/);
+  sql('BEGIN; '+setup+context+';'+required+'; ROLLBACK');checks++;
+  denies('context cannot attach unknown session',setup+context.replace(sessionHash,'c'.repeat(64)),/ENTITLEMENT_SESSION_MISMATCH/);
+  denies('context cannot attach another user session',setup.replaceAll("'binding-manager'","'binding-agent'")+context,/ENTITLEMENT_SESSION_MISMATCH/);
+  denies('context cannot outlive session',setup.replace("clock_timestamp()+interval '10 minutes'","clock_timestamp()+interval '1 minute'")+context,/ENTITLEMENT_SESSION_MISMATCH/);
+  denies('context rejects revoked session',setup+"UPDATE backend_identity.sessions SET revoked_at=clock_timestamp();"+context,/ENTITLEMENT_SESSION_MISMATCH/);
+  for(const ids of ["ARRAY['product-b','product-a']","ARRAY['product-a','product-a']","ARRAY[NULL]::text[]","ARRAY['*']","ARRAY(SELECT 'p'||n FROM generate_series(1,101) n)"]) {
+   denies('invalid canonical selection '+ids,setup+context.replace("ARRAY['product-a','product-b']",ids),/check constraint/);
+  }
+  denies('bound selection cannot be changed',setup+context+"; UPDATE content_intake.entitlement_contexts SET product_ids=ARRAY[]::text[]",/INTAKE_HISTORY_IMMUTABLE/);
+  denies('bound context cannot be removed',setup+context+"; DELETE FROM content_intake.entitlement_contexts",/INTAKE_HISTORY_IMMUTABLE/);
+  const readable=`SELECT EXISTS (SELECT 1 FROM content_intake.entitlement_contexts c JOIN content_intake.entitlements e USING(entitlement_hash)
+   JOIN backend_identity.sessions s ON s.token_hash=c.session_token_hash
+   JOIN backend_identity.subject_bindings b ON b.binding_id=s.binding_id AND b.user_id=e.user_id
+   WHERE c.entitlement_hash='${hash}' AND s.token_hash='${sessionHash}' AND b.enabled AND s.revoked_at IS NULL
+    AND s.issued_at<=clock_timestamp() AND clock_timestamp()<least(s.expires_at,e.valid_until))`;
+  assert.equal(sql('BEGIN; '+setup+context+';'+readable+'; ROLLBACK').split('\n').at(-2),'t');checks++;
+  assert.equal(sql('BEGIN; '+setup+context+';'+readable.replace(`s.token_hash='${sessionHash}'`,`s.token_hash='${'c'.repeat(64)}'`)+'; ROLLBACK').split('\n').at(-2),'f');checks++;
+  assert.equal(sql('BEGIN; '+setup+context+'; DELETE FROM backend_identity.sessions;'+readable+'; ROLLBACK').split('\n').at(-2),'f');checks++;
+  assert.equal(sql('BEGIN; '+setup+context+'; UPDATE backend_identity.sessions SET revoked_at=clock_timestamp();'+readable+'; ROLLBACK').split('\n').at(-2),'f');checks++;
+  for(const role of ['app_runtime','app_content_admin','app_import_worker','app_backend_auth','app_backend_review','app_backend_worker'])
+   rejects(`SET ROLE ${role}; SELECT * FROM content_intake.entitlement_contexts`,/permission denied/);
+ }
  // Revision target/result and single-source projections added after the second review.
  assert.equal(sql("SELECT principal_id FROM content_intake.contributors WHERE candidate_id='candidate-a'"),'manager');checks++;
  denies('contributors cannot diverge from immutable material',"UPDATE content_intake.contributors SET principal_id='agent' WHERE candidate_id='candidate-a'",/cannot update view/);

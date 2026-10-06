@@ -21,7 +21,7 @@ const repoRoot = path.resolve(siteRoot, "..");
 const archiveRoot = path.join(repoRoot, "archive");
 
 export const BASE_ARCHIVE_NAME = "2026-07-31-ai-project-brief";
-export const SECURITY_ARCHIVE_DATE = "2026-10-05";
+export const SECURITY_ARCHIVE_DATE = "2026-10-06";
 export const SECURITY_ARCHIVE_NAME = `${SECURITY_ARCHIVE_DATE}-ai-project-brief-security-maintenance`;
 export const BASE_ARCHIVE_ROOT = path.join(archiveRoot, BASE_ARCHIVE_NAME);
 export const SECURITY_ARCHIVE_ROOT = path.join(archiveRoot, SECURITY_ARCHIVE_NAME);
@@ -37,6 +37,8 @@ const DOMPURIFY_FROM = "3.4.12";
 export const DOMPURIFY_VERSION = "3.4.16";
 const MERMAID_FROM = "10.9.6";
 const MERMAID_TO = "10.9.8";
+const KATEX_VERSION = "0.18.2";
+export const MERMAID_VENDOR_NAME = `mermaid-${MERMAID_TO}.min.js`;
 
 export const ALLOWED_MAINTENANCE_DIFFERENCES = Object.freeze([
   "ARCHITECTURE.md",
@@ -152,16 +154,19 @@ export async function assertBaseArchiveFrozen() {
 
 // The preceding maintained snapshot is evidence, never an in-place upgrade target.
 async function assertPreviousMaintenanceFrozen() {
-  const name = "2026-08-09-ai-project-brief-security-maintenance";
-  const manifestBytes = await readFile(path.join(archiveRoot, `${name}.manifest.json`));
-  if (sha256(manifestBytes) !== "7d643e5c542c61bd843f3ba83a50d1e11ac0536c1f7f079f7227f8c844259b6c") {
-    throw new Error("2026-08-09 安全维护 manifest 必须保持冻结字节");
-  }
-  const manifest = JSON.parse(manifestBytes);
-  const receipt = await directoryReceipt(path.join(archiveRoot, name));
-  if (receipt.treeSha256 !== manifest.treeSha256 || receipt.relativeFiles.length !== manifest.fileCount ||
-      receipt.hashes.get("index.html") !== manifest.entrySha256) {
-    throw new Error("2026-08-09 安全维护历史已发生变化，拒绝生成或验证新快照");
+  for (const [date, hash] of [
+    ["2026-08-09", "7d643e5c542c61bd843f3ba83a50d1e11ac0536c1f7f079f7227f8c844259b6c"],
+    ["2026-10-05", "171a43e75b242956317c11a7691c21fede3f074c9e5757f43b17c1cb66f41519"],
+  ]) {
+    const name = `${date}-ai-project-brief-security-maintenance`;
+    const manifestBytes = await readFile(path.join(archiveRoot, `${name}.manifest.json`));
+    if (sha256(manifestBytes) !== hash) throw new Error(`${date} 安全维护 manifest 必须保持冻结字节`);
+    const manifest = JSON.parse(manifestBytes);
+    const receipt = await directoryReceipt(path.join(archiveRoot, name));
+    if (receipt.treeSha256 !== manifest.treeSha256 || receipt.relativeFiles.length !== manifest.fileCount ||
+        receipt.hashes.get("index.html") !== manifest.entrySha256) {
+      throw new Error(`${date} 安全维护历史已发生变化，拒绝生成或验证新快照`);
+    }
   }
 }
 
@@ -169,6 +174,7 @@ async function patchSecurityRuntime(stagingRoot) {
   await Promise.all([
     assertPackageVersion("dompurify", DOMPURIFY_VERSION),
     assertPackageVersion("mermaid", MERMAID_TO),
+    assertPackageVersion("katex", KATEX_VERSION),
   ]);
 
   const oldDomPurifyPath = path.join(
@@ -184,7 +190,21 @@ async function patchSecurityRuntime(stagingRoot) {
   const domPurifyBytes = await readFile(
     path.join(siteRoot, "node_modules/dompurify/dist/purify.es.mjs")
   );
-  const mermaidBytes = await readFile(path.join(siteRoot, "node_modules/mermaid/dist/mermaid.min.js"));
+  // The upstream prebundle embeds its own KaTeX. A lockfile override alone does
+  // not patch it; bundle the ESM graph and verify that the installed patch enters it.
+  const mermaidBuild = await build({
+    absWorkingDir: siteRoot,
+    stdin: { contents: "import mermaid from 'mermaid'; globalThis.mermaid = mermaid;", resolveDir: siteRoot },
+    bundle: true, write: false, format: "iife", platform: "browser",
+    target: ["chrome109", "safari16"], charset: "utf8", minify: true,
+    legalComments: "inline", metafile: true,
+  });
+  const inputs = Object.keys(mermaidBuild.metafile.inputs);
+  if (!inputs.includes("node_modules/katex/dist/katex.mjs") ||
+      inputs.some((input) => input.includes("/katex/") && !input.startsWith("node_modules/katex/"))) {
+    throw new Error("Mermaid 构建必须消费当前锁定的 KaTeX，拒绝未核验的预打包版本");
+  }
+  const mermaidBytes = mermaidBuild.outputFiles[0].contents;
 
   await Promise.all([
     rm(oldDomPurifyPath),
@@ -245,6 +265,8 @@ async function patchSecurityRuntime(stagingRoot) {
     `## 变更\n\n` +
     `- DOMPurify \`${DOMPURIFY_FROM}\` → \`${DOMPURIFY_VERSION}\`（含 GHSA-55q2-fjhq-7xh7、GHSA-p98j-92pf-mc4p；[上游说明](https://github.com/cure53/DOMPurify/releases/tag/3.4.16)）；\n` +
     `- Mermaid \`${MERMAID_FROM}\` → \`${MERMAID_TO}\`（GHSA-c4c3-pg64-4m4v、GHSA-6x64-9x62-f2gx、GHSA-2v8p-3f2j-5mp7）；\n` +
+    `- Mermaid 从 ESM 依赖图重新打包，实际包含 KaTeX \`${KATEX_VERSION}\`（[GHSA-238p-pmpm-9mq7](https://github.com/advisories/GHSA-238p-pmpm-9mq7)）；不能用锁文件升级冒充预打包文件已修复。\n` +
+    `- 构建依赖 source-map-js 升至 \`1.2.2\`（[GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)）；不向浏览器增加该依赖。\n` +
     `- 公开副本只保留“历史组合费用提案未获批准”的结论，移除其精确金额；\n` +
     `- 同步本地 vendor、DOMPurify import、Mermaid loader/SRI，以及由构建器生成的 Bundle、release.json 和 index 资源指纹。\n\n` +
     `## 不变边界\n\n` +
@@ -398,6 +420,7 @@ async function createExpectedSnapshot(stagingRoot) {
     runtimeDependencies: {
       dompurify: DOMPURIFY_VERSION,
       mermaid: MERMAID_TO,
+      katex: KATEX_VERSION,
     },
     sourceBusinessContentSha256: sha256(
       await readFile(path.join(BASE_ARCHIVE_ROOT, "data/content.json"))

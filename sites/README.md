@@ -4,20 +4,20 @@
 
 | 发布单元 | 生命周期 | 仓库源 | 网址 |
 |---|---|---|---|
-| AI 赋能立项汇报 | **2026-07-31 业务结论 · 2026-10-05 安全维护候选（未部署）** | [`../archive/2026-10-05-ai-project-brief-security-maintenance/`](../archive/2026-10-05-ai-project-brief-security-maintenance/) | <https://weiweity.github.io/tianyuan-ai-brief/> |
+| AI 赋能立项汇报 | **2026-07-31 业务结论 · 2026-10-06 安全维护候选（未部署）** | [`../archive/2026-10-06-ai-project-brief-security-maintenance/`](../archive/2026-10-06-ai-project-brief-security-maintenance/) | <https://weiweity.github.io/tianyuan-ai-brief/> |
 | 客服 Agent 一期启动会 | **PRE-D0 / 需求阶段会议快照 · 非当前设计 SSOT** | [`../business-docs/01-客服Agent项目/09-客服Agent需求会汇报.html`](../business-docs/01-客服Agent项目/09-客服Agent需求会汇报.html) | <https://weiweity.github.io/tianyuan-ai-brief/customer-agent/> |
 
 新快照仅在本地生成与验证，线上仍以已部署版本为准；本次没有部署。
 
 ## 边界
 
-- `archive/2026-07-31-ai-project-brief/`、`archive/2026-08-09-ai-project-brief-security-maintenance/` 与各自 [原始 manifest](../archive/archive-manifest.json)、[前次维护 manifest](../archive/2026-08-09-ai-project-brief-security-maintenance.manifest.json) 保持字节不动；当前构建候选按独立的 [`2026-10-05...manifest.json`](../archive/2026-10-05-ai-project-brief-security-maintenance.manifest.json) 校验文件数、入口哈希和整棵目录哈希。
+- `archive/2026-07-31-ai-project-brief/`、`archive/2026-08-09-ai-project-brief-security-maintenance/`、`archive/2026-10-05-ai-project-brief-security-maintenance/` 及各自 manifest 保持字节不动；当前构建候选按独立的 [`2026-10-06...manifest.json`](../archive/2026-10-06-ai-project-brief-security-maintenance.manifest.json) 校验文件数、入口哈希和整棵目录哈希。
 - 历史站点的构建脚本只有只读 `--check` 模式；不提供原地重建命令。
 - 客服页面只从客服项目真源生成；品牌素材归客服项目自己所有，不依赖历史归档目录。
 - `scripts/build-pages-artifact.mjs` 只做发布编排：归档页发布到 `/`，客服安全视图发布到 `/customer-agent/`。
 - `dist/` 和 `test-results/` 是本地生成物，不提交。
 
-`package.json` 中的 `dompurify@3.4.16` 与 `mermaid@10.9.8` 是当前构建候选本地 vendor 的 **audit/SBOM mirror**。页面运行时只加载 `archive/2026-10-05-ai-project-brief-security-maintenance/vendor/`，不从 `node_modules` 或 CDN 加载；锁文件、vendor 文件名、许可证、Mermaid SRI 与测试必须同步。旧归档中的 3.4.12 / 10.9.6 及前次快照中的 3.4.13 保持历史字节，不允许用 package-only 升级制造假修复。
+`package.json` 锁定 `dompurify@3.4.16`、`mermaid@10.9.8`，并将 Mermaid 的 KaTeX 固定为 `0.18.2`。生成器复制 DOMPurify，从 Mermaid ESM 依赖图重新打包单文件，校验 KaTeX 确实进入构建；不能复制含旧依赖的上游预打包文件。页面运行时只加载 `archive/2026-10-06-ai-project-brief-security-maintenance/vendor/`，不从 `node_modules` 或 CDN 加载；锁文件、vendor、许可证、Mermaid SRI 与测试必须同步。构建依赖 source-map-js 已升至 `1.2.2`。旧快照保持历史字节，不允许用 package-only 升级制造假修复。
 
 ## 校验与预览
 

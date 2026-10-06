@@ -141,6 +141,60 @@ export function buildIntakeContractFiles(readSource) {
   ]);
   return {openapi:Buffer.from(openapi), database};
 }
+export const INTAKE_USAGE_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.17.yaml`,
+  database: `${development}/schema.v1.21.sql`,
+  increment: `${development}/14-P2使用资格上下文合同候选.md`,
+});
+export const INTAKE_USAGE_SOURCES = Object.freeze({
+  openapi: `${development}/content-intake-usage-candidate/openapi.delta.json`,
+  storage: `${development}/content-intake-usage-candidate/storage.delta.sql`,
+});
+
+/** New draft only. Rebuild the frozen predecessor unchanged, then replace exact
+ * component/operation lines. Standard JSON Schema expresses the combined budget;
+ * downstream validators need no private keyword or hand-maintained field list. */
+export function buildIntakeUsageContractFiles(readSource) {
+  const base=buildIntakeContractFiles(readSource);
+  const prior=JSON.parse(readSource(INTAKE_SOURCES.openapi));
+  const delta=JSON.parse(readSource(INTAKE_USAGE_SOURCES.openapi));
+  const limit=prior.components.schemas.IntakeSnapshot.properties.vocabulary.maxItems;
+  if (delta.vocabularyLimit!==limit || delta.selectionIds.maxItems!==limit) throw new Error('Usage budget must match frozen snapshot budget');
+  let openapi=base.openapi.toString('utf8');
+  const replace=(before,after)=>{
+    if(openapi.split(before).length!==2) throw new Error('Non-unique usage predecessor anchor');
+    openapi=openapi.replace(before,after);
+  };
+  replace('  version: 1.16.0\n','  version: 1.17.0\n');
+  replace('  schemas:\n',`  schemas:\n    IntakeSelectionIds: ${JSON.stringify(delta.selectionIds)}\n`);
+  const request=structuredClone(prior.components.schemas.IntakeEntitlementRequest);
+  request.required.push('productIds','scenarioIds');
+  for(const name of ['productIds','scenarioIds']) request.properties[name]={$ref:'#/components/schemas/IntakeSelectionIds'};
+  const schemas={IntakeEntitlementRequest:request};
+  for(const name of ['IntakeEntry','IntakePublishedEntry']) {
+    const schema=structuredClone(prior.components.schemas[name]);
+    const budget=Array.from({length:limit},(_,i)=>({
+      if:{properties:{productRefs:{type:'array',minItems:i+1}}},
+      then:{properties:{scenarioRefs:{type:'array',maxItems:limit-i-1}}},
+    }));
+    // Historical over-budget rows may still be explicitly disabled, never republished.
+    schema.allOf=[{if:{properties:{operation:{const:'upsert'}}},then:{allOf:budget}}];
+    schema.description+=' 启用条目的商品与场景引用总数最多 100；整页去重词项最多 100，分页不得截断条目。';
+    schemas[name]=schema;
+  }
+  for(const [name,schema] of Object.entries(schemas)) replace(
+    `    ${name}: ${JSON.stringify(prior.components.schemas[name])}\n`, `    ${name}: ${JSON.stringify(schema)}\n`);
+  for(const [route,description] of [['/v1/intake/entitlements',delta.entitlementDescription],['/v1/intake/snapshot',delta.snapshotDescription]]) {
+    const old=Object.fromEntries(Object.entries(prior.paths[route]).map(([method,op])=>[method,{...op,security:prior.security}]));
+    const next=structuredClone(old);Object.values(next)[0].description=description;
+    replace(`  ${JSON.stringify(route)}: ${JSON.stringify(old)}\n`,`  ${JSON.stringify(route)}: ${JSON.stringify(next)}\n`);
+  }
+  openapi+='\nx-content-intake-usage-development: '+JSON.stringify({status:'DRAFT',runtime_activated:false,sqlContract:'schema.v1.21',transactionImplementationRequired:true})+'\n';
+  const storage=readSource(INTAKE_USAGE_SOURCES.storage);
+  const database=Buffer.concat([Buffer.from('-- schema.v1.21 — DRAFT usage-context additive storage contract\n'),base.database,
+    Buffer.from(`\n-- BEGIN INTAKE USAGE ${digest(storage)}\n`),storage,Buffer.from('-- END INTAKE USAGE\n')]);
+  return {openapi:Buffer.from(openapi),database};
+}
 const PUBLISH_OWNER_ONLY = `      operationId: publishContent
       summary: 将 staged 批次发布为新的 current release
       description: |
@@ -223,15 +277,16 @@ export function buildOpsLoopContractFiles(readSource) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish','--write-intake','--check-intake'];
+  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish','--write-intake','--check-intake','--write-intake-usage','--check-intake-usage'];
   if (args.length !== 1 || !allowed.includes(args[0])) throw new Error(`Use exactly one of: ${allowed.join(', ')}`);
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   const coachPublish = args[0].endsWith('-coach-publish');
   const intake = args[0].endsWith('-intake');
+  const usage = args[0].endsWith('-intake-usage');
   const opsLoop = args[0].endsWith('-ops-loop');
   const closure = args[0].endsWith('-closure');
-  const files = (intake ? buildIntakeContractFiles : coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
-  const paths = intake ? INTAKE_CONTRACT_PATHS : coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
+  const files = (usage ? buildIntakeUsageContractFiles : intake ? buildIntakeContractFiles : coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
+  const paths = usage ? INTAKE_USAGE_CONTRACT_PATHS : intake ? INTAKE_CONTRACT_PATHS : coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
   for (const [key,bytes] of Object.entries(files)) {
     const target = path.join(root,paths[key]);
     if (args[0].startsWith('--write')) writeFileSync(target,bytes);

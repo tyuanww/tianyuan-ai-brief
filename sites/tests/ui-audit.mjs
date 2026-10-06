@@ -1,4 +1,4 @@
-import { SECURITY_ARCHIVE_NAME } from "../scripts/build-security-maintenance-archive.mjs";
+import { SECURITY_ARCHIVE_NAME, MERMAID_VENDOR_NAME } from "../scripts/build-security-maintenance-archive.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
@@ -1178,6 +1178,7 @@ async function runFileFailureAudit(browser) {
 }
 
 async function runMermaidResilienceAudit(browser, mode) {
+  let delayedRequests = 0;
   const context = await browser.newContext({
     viewport: { width: 375, height: 667 },
     isMobile: true,
@@ -1201,7 +1202,8 @@ async function runMermaidResilienceAudit(browser, mode) {
       );
     });
   } else {
-    await page.route(/mermaid-10\.9\.6\.min\.js/, async (route) => {
+    await page.route(`**/vendor/${MERMAID_VENDOR_NAME}*`, async (route) => {
+      delayedRequests++;
       await new Promise((resolve) => setTimeout(resolve, 3000));
       await route.continue();
     });
@@ -1220,6 +1222,7 @@ async function runMermaidResilienceAudit(browser, mode) {
   await page.locator("#tab-t2").click();
   if (mode === "slow") {
     await assertVisibleMermaidText(page, "t2");
+    assert.equal(delayedRequests, 1, "必须实际延迟当前 Mermaid vendor");
   } else {
     await page.locator('#t2 .mermaid-host[data-render-state="fallback"]').waitFor({
       timeout: 3000,
@@ -1397,6 +1400,7 @@ async function runCrossReleaseRefreshAudit(browser) {
 }
 
 async function runImmediatePrintFallbackAudit(browser) {
+  let delayedRequests = 0;
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
@@ -1404,7 +1408,8 @@ async function runImmediatePrintFallbackAudit(browser) {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.route(/mermaid-10\.9\.6\.min\.js/, async (route) => {
+  await page.route(`**/vendor/${MERMAID_VENDOR_NAME}*`, async (route) => {
+    delayedRequests++;
     await new Promise((resolve) => setTimeout(resolve, 3000));
     await route.continue();
   });
@@ -1425,6 +1430,7 @@ async function runImmediatePrintFallbackAudit(browser) {
   });
   const elapsed = Date.now() - started;
   assert.ok(elapsed < 2500, `立即打印不应等待慢 Mermaid：${elapsed}ms`);
+  assert.equal(delayedRequests, 1, "打印必须实际面对延迟的当前 Mermaid vendor");
   const states = await page.locator(".mermaid-host").evaluateAll((hosts) =>
     hosts.map((host) => ({
       state: host.dataset.renderState,
