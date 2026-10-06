@@ -150,8 +150,11 @@ export const INTAKE_USAGE_SOURCES = Object.freeze({
   openapi: `${development}/content-intake-usage-candidate/openapi.delta.json`,
   storage: `${development}/content-intake-usage-candidate/storage.delta.sql`,
 });
+export const INTAKE_USAGE_APPROVAL_PATH = 'business-docs/01-客服Agent项目/90-评审/2026-10-06_P2使用资格上下文合同批准.md';
 
-/** New draft only. Rebuild the frozen predecessor unchanged, then replace exact
+/** Rebuild the approved bytes unchanged (including original draft annotations).
+ * Lifecycle approval lives in the paired normative/approval records, not a rewrite
+ * of already reviewed machine bytes. Rebuild the predecessor, then replace exact
  * component/operation lines. Standard JSON Schema expresses the combined budget;
  * downstream validators need no private keyword or hand-maintained field list. */
 export function buildIntakeUsageContractFiles(readSource) {

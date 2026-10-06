@@ -33,6 +33,9 @@ import {
   INTAKE_CONTRACT_PATHS,
   INTAKE_APPROVAL_PATH,
   buildIntakeContractFiles,
+  INTAKE_USAGE_CONTRACT_PATHS,
+  INTAKE_USAGE_APPROVAL_PATH,
+  buildIntakeUsageContractFiles,
 } from "./build_customer_agent_backend_contract.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -40,7 +43,7 @@ const repositoryRoot = path.resolve(path.dirname(scriptPath), "../..");
 const defaultOutputRoot = path.join(repositoryRoot, "output/customer-agent-contract-sets");
 
 export const CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v1";
-export const CONTRACT_SET_TOOL_VERSION = "1.3.0";
+export const CONTRACT_SET_TOOL_VERSION = "1.4.0";
 
 export const CONTRACT_SOURCE_PATHS = Object.freeze({
   architecture: "business-docs/01-客服Agent项目/20-设计-进行中/37-架构SSOT-v1.md",
@@ -266,29 +269,43 @@ export function renderContractSetManifest(manifest) {
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
-export function assertIntakeExportGate(readSource, {databaseHash, openapiHash}) {
-  const increment = utf8(readSource(INTAKE_CONTRACT_PATHS.increment), "P2 资料接入合同");
+function assertFrozenIntakePair(readSource, {databaseHash, openapiHash}, {paths, predecessor, approvalPath, label, anchor: incrementAnchor}) {
+  const increment = utf8(readSource(paths.increment), label);
   if (!/^> 状态：FROZEN · NOT EXPORTED · NOT INTAKE · SYNTHETIC DEVELOPMENT ONLY\r?$/m.test(increment)) {
-    throw new Error("P2 资料接入合同未冻结");
+    throw new Error(`${label}未冻结`);
   }
   for (const [anchor, ddl, api] of [
-    ["**直接前序机器合同：**", sha256(readSource(COACH_PUBLISH_CONTRACT_PATHS.database)), sha256(readSource(COACH_PUBLISH_CONTRACT_PATHS.openapi))],
-    ["**P2 机器合同增量：**", databaseHash, openapiHash],
+    ["**直接前序机器合同：**", sha256(readSource(predecessor.database)), sha256(readSource(predecessor.openapi))],
+    [incrementAnchor, databaseHash, openapiHash],
     ["**实际产物必须精确匹配：**", databaseHash, openapiHash],
   ]) {
-    const lines = linesForAnchor(increment, "P2 资料接入合同", anchor);
+    const lines = linesForAnchor(increment, label, anchor);
     if (lines.length !== 1) throw new Error(`P2 合同声明必须唯一：${anchor}`);
     hashPairFromLine(lines[0], anchor);
     assertLineCarriesHashes(lines[0], anchor, ddl, api);
   }
-  const approval = utf8(readSource(INTAKE_APPROVAL_PATH), "P2 合同批准");
+  const approval = utf8(readSource(approvalPath), `${label}批准`);
   if (!/^> 状态：APPROVED · CONTRACT ONLY · SYNTHETIC DEVELOPMENT ONLY\r?$/m.test(approval)) {
-    throw new Error("缺 P2 合同增量批准；旧后端/DEV-M3 批准不覆盖本次");
+    throw new Error(`缺 ${label}增量批准；前序批准不覆盖本次`);
   }
   const approved = linesForAnchor(approval, "P2 合同批准", "**批准产物：**");
   if (approved.length !== 1) throw new Error("P2 批准必须绑定唯一成对哈希");
   hashPairFromLine(approved[0], "P2 批准");
   assertLineCarriesHashes(approved[0], "P2 批准", databaseHash, openapiHash);
+}
+
+export function assertIntakeExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths: INTAKE_CONTRACT_PATHS, predecessor: COACH_PUBLISH_CONTRACT_PATHS,
+    approvalPath: INTAKE_APPROVAL_PATH, label: 'P2 资料接入合同', anchor: '**P2 机器合同增量：**',
+  });
+}
+
+export function assertIntakeUsageExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths: INTAKE_USAGE_CONTRACT_PATHS, predecessor: INTAKE_CONTRACT_PATHS,
+    approvalPath: INTAKE_USAGE_APPROVAL_PATH, label: 'P2 使用资格合同', anchor: '**P2 使用资格机器合同增量：**',
+  });
 }
 
 export function loadContractSetFromCommit({
@@ -311,14 +328,16 @@ export function loadContractSetFromCommit({
   let opsLoopProfile = false;
   let coachPublishProfile = false;
   let intakeProfile = false;
+  let intakeUsageProfile = false;
   if (ownerProfile) {
     const profile = JSON.parse(utf8(readSource(OWNER_PROFILE_PATH), OWNER_PROFILE_PATH));
     if (Object.keys(profile).sort().join(",") !== "profile,schema"
         || profile.schema !== "customer-agent-contract-profile/v1"
-        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2"].includes(profile.profile)) {
+        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2", "content-intake-usage-v1"].includes(profile.profile)) {
       throw new Error("未知或不封闭的合同来源 profile");
     }
-    intakeProfile = profile.profile === "content-intake-v2";
+    intakeUsageProfile = profile.profile === "content-intake-usage-v1";
+    intakeProfile = intakeUsageProfile || profile.profile === "content-intake-v2";
     coachPublishProfile = intakeProfile || profile.profile === "coach-publish-v1";
     opsLoopProfile = coachPublishProfile || profile.profile === "ops-loop-v1";
     closureProfile = profile.profile === "backend-closure-v1";
@@ -333,7 +352,10 @@ export function loadContractSetFromCommit({
   // A draft may coexist with the current frozen profile. Only an approval milestone
   // makes a subsequent downgrade illegal; creating a candidate is not approval.
   if (!intakeProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake profile");
-  const sourcePaths = intakeProfile
+  if (!intakeUsageProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_USAGE_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-usage profile");
+  const sourcePaths = intakeUsageProfile
+    ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_USAGE_CONTRACT_PATHS.openapi, database: INTAKE_USAGE_CONTRACT_PATHS.database }
+    : intakeProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_CONTRACT_PATHS.openapi, database: INTAKE_CONTRACT_PATHS.database }
     : coachPublishProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: COACH_PUBLISH_CONTRACT_PATHS.openapi, database: COACH_PUBLISH_CONTRACT_PATHS.database }
@@ -475,9 +497,16 @@ export function loadContractSetFromCommit({
   if (intakeProfile) {
     const generated = buildIntakeContractFiles(readSource);
     for (const key of ["database", "openapi"]) {
-      if (!buffers[key].equals(generated[key])) throw new Error(`P2 资料接入合同派生产物漂移：${key}`);
+      if (!readSource(INTAKE_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`P2 资料接入合同派生产物漂移：${key}`);
     }
-    assertIntakeExportGate(readSource, {databaseHash, openapiHash});
+    assertIntakeExportGate(readSource, {databaseHash: sha256(generated.database), openapiHash: sha256(generated.openapi)});
+  }
+  if (intakeUsageProfile) {
+    const generated = buildIntakeUsageContractFiles(readSource);
+    for (const key of ["database", "openapi"]) {
+      if (!buffers[key].equals(generated[key])) throw new Error(`P2 使用资格合同派生产物漂移：${key}`);
+    }
+    assertIntakeUsageExportGate(readSource, {databaseHash, openapiHash});
   }
 
   const openapiVersion = extractOpenapiVersion(sources.openapi);

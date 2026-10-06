@@ -217,4 +217,4 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 
 ### P2 使用资格上下文候选
 
-[使用资格上下文与词项预算](../01-客服Agent项目/30-开发-进行中/14-P2使用资格上下文合同候选.md)是新的 DRAFT 增量（OpenAPI 1.17.0 / schema.v1.21），未冻结或选入 export profile。生成/校验复用 `build_customer_agent_backend_contract.mjs --write-intake-usage / --check-intake-usage`；`test:intake-usage-contract` 验证实际 wire，`test:intake-usage-contract:pg` 复用原隔离 PG15 执行器并追加会话/上下文存储探针。旧 1.16 / 1.20 和其批准记录不变。新版本须单独冻结及版本化交接，不能通过修改 profile 省略批准。
+[使用资格上下文与词项预算](../01-客服Agent项目/30-开发-进行中/14-P2使用资格上下文合同候选.md)是已批准冻结的合成开发增量（OpenAPI 1.17.0 / schema.v1.21），profile 为 `content-intake-usage-v1`。生成/校验复用 `build_customer_agent_backend_contract.mjs --write-intake-usage / --check-intake-usage`；`test:intake-usage-contract` 验证实际 wire，`test:intake-usage-contract:pg` 复用原隔离 PG15 执行器并追加会话/上下文存储探针。旧 1.16 / 1.20 和其批准记录不变。[本次独立批准](../01-客服Agent项目/90-评审/2026-10-06_P2使用资格上下文合同批准.md)绑定精确双哈希；export 从完整 Git 提交读取规范、批准及生成源，拒绝缺批准、DRAFT、字节漂移和批准后降级。旧合同与不可变 export 不覆盖。
