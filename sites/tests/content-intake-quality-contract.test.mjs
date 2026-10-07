@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import Ajv from 'ajv/dist/2020.js';
@@ -8,12 +11,15 @@ import {
   buildIntakeQualityContractFiles, buildIntakeUsageContractFiles,
   INTAKE_QUALITY_CONTRACT_PATHS, INTAKE_QUALITY_SOURCE, INTAKE_USAGE_CONTRACT_PATHS,
 } from '../../business-docs/08-工具/build_customer_agent_backend_contract.mjs';
-import { loadContractSetFromCommit } from '../../business-docs/08-工具/export_customer_agent_contract_set.mjs';
+import * as builder from '../../business-docs/08-工具/build_customer_agent_backend_contract.mjs';
+import { OWNER_PROFILE_PATH, OWNER_CONTRACT_PATHS } from '../../business-docs/08-工具/build_customer_agent_owner_contract.mjs';
+import { CONTRACT_SOURCE_PATHS, assertIntakeQualityExportGate, loadContractSetFromCommit } from '../../business-docs/08-工具/export_customer_agent_contract_set.mjs';
 
 const root = new URL('../../', import.meta.url);
 const read = file => readFileSync(new URL(file, root));
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const generated = buildIntakeQualityContractFiles(read);
+const used = new Set();
+const generated = buildIntakeQualityContractFiles(file => { used.add(file); return read(file); });
 const previous = buildIntakeUsageContractFiles(read);
 const delta = JSON.parse(read(INTAKE_QUALITY_SOURCE));
 const schemasFrom = bytes => Object.fromEntries(bytes.toString().split('\n')
@@ -165,15 +171,71 @@ test('generator rejects collisions instead of mutating the approved predecessor'
   }
 });
 
-test('current export remains on the approved pair and cannot export this draft as that pair', () => {
-  const repository = root.pathname;
-  const sourceGitSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repository, encoding: 'utf8' }).trim();
+test('historical draft commit still exports only its then-approved pair', () => {
+  const repository = fileURLToPath(root);
+  const sourceGitSha = 'ab70d723bab73c9a9b3bcd4f20a3e6bc9ecbd740';
   const exported = loadContractSetFromCommit({ repository, sourceGitSha,
     expectedOpenapiSha256: hash(previous.openapi), expectedDatabaseSha256: hash(previous.database) });
   assert.equal(exported.manifest.openapi.version, '1.17.0');
   assert.throws(() => loadContractSetFromCommit({ repository, sourceGitSha,
     expectedOpenapiSha256: hash(generated.openapi), expectedDatabaseSha256: hash(generated.database) }), /OpenAPI blob 哈希不匹配/);
-  assert.equal(JSON.parse(read('business-docs/01-客服Agent项目/30-开发-进行中/contract-profile.v1.json')).profile, 'content-intake-usage-v1');
+  assert.equal(JSON.parse(execFileSync('git', ['show', `${sourceGitSha}:${OWNER_PROFILE_PATH}`], { cwd: repository })).profile, 'content-intake-usage-v1');
+});
+
+test('quality freeze exports only the approved exact pair and rejects every downgrade path', () => {
+  const repo = mkdtempSync(path.join(tmpdir(), 'intake-quality-export-'));
+  const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const write = (file, bytes) => {
+    mkdirSync(path.dirname(path.join(repo, file)), { recursive: true });
+    writeFileSync(path.join(repo, file), bytes);
+  };
+  try {
+    const files = new Set([...used, ...Object.values(CONTRACT_SOURCE_PATHS), ...Object.values(OWNER_CONTRACT_PATHS),
+      OWNER_PROFILE_PATH, builder.INTAKE_APPROVAL_PATH, builder.INTAKE_USAGE_APPROVAL_PATH,
+      'business-docs/01-客服Agent项目/90-评审/2026-09-09_后端合成开发批准.md']);
+    for (const name of ['BACKEND_CONTRACT_PATHS', 'CLOSURE_CONTRACT_PATHS', 'OPS_LOOP_CONTRACT_PATHS',
+      'COACH_PUBLISH_CONTRACT_PATHS', 'INTAKE_CONTRACT_PATHS', 'INTAKE_USAGE_CONTRACT_PATHS', 'INTAKE_QUALITY_CONTRACT_PATHS']) {
+      for (const file of Object.values(builder[name])) files.add(file);
+    }
+    for (const file of files) write(file, read(file));
+    write(OWNER_PROFILE_PATH, JSON.stringify({ schema: 'customer-agent-contract-profile/v1', profile: 'content-intake-quality-v1' }));
+    git('init', '-q'); git('config', 'user.email', 'synthetic@example.invalid'); git('config', 'user.name', 'Synthetic');
+    git('config', 'commit.gpgsign', 'false');
+    const commit = () => { git('add', '--all'); git('commit', '-qm', 'synthetic quality export fixture'); return git('rev-parse', 'HEAD'); };
+    const options = { repository: repo, expectedOpenapiSha256: hash(generated.openapi), expectedDatabaseSha256: hash(generated.database) };
+    const load = () => loadContractSetFromCommit({ ...options, sourceGitSha: commit() });
+    assert.throws(load, 'usage approval cannot approve new quality HTTP');
+    const approval = read(builder.INTAKE_QUALITY_APPROVAL_PATH).toString();
+    write(builder.INTAKE_QUALITY_APPROVAL_PATH, approval.replace(options.expectedOpenapiSha256, 'f'.repeat(64)));
+    assert.throws(load, /双哈希不一致/);
+    write(builder.INTAKE_QUALITY_APPROVAL_PATH, approval);
+    const frozen = read(INTAKE_QUALITY_CONTRACT_PATHS.increment).toString();
+    write(INTAKE_QUALITY_CONTRACT_PATHS.increment, frozen.replace('FROZEN · NOT EXPORTED', 'DRAFT · NOT FROZEN · NOT EXPORTED'));
+    assert.throws(load, /未冻结/);
+    write(INTAKE_QUALITY_CONTRACT_PATHS.increment, frozen.replaceAll(options.expectedOpenapiSha256, 'f'.repeat(64)));
+    assert.throws(load, /双哈希不一致/);
+    write(INTAKE_QUALITY_CONTRACT_PATHS.increment, frozen);
+    const sourceGitSha = commit();
+    const exported = loadContractSetFromCommit({ ...options, sourceGitSha });
+    assert.equal(exported.manifest.openapi.version, '1.18.0');
+    assert.equal(exported.manifest.database.version, 'schema.v1.21');
+    assert.ok(exported.files.get(exported.manifest.database.file).equals(previous.database));
+    assertIntakeQualityExportGate(read, { openapiHash: options.expectedOpenapiSha256, databaseHash: options.expectedDatabaseSha256 });
+    write(builder.INTAKE_QUALITY_APPROVAL_PATH, 'NOT APPROVED');
+    assert.equal(loadContractSetFromCommit({ ...options, sourceGitSha }).manifest.source_git_sha, sourceGitSha, 'dirty approval is ignored');
+    assert.throws(load, /缺 P2/);
+    write(builder.INTAKE_QUALITY_APPROVAL_PATH, approval);
+    const drift = Buffer.concat([generated.openapi, Buffer.from('\n# drift\n')]);
+    write(INTAKE_QUALITY_CONTRACT_PATHS.openapi, drift);
+    assert.throws(() => loadContractSetFromCommit({ ...options, sourceGitSha: commit(), expectedOpenapiSha256: hash(drift) }), /派生产物漂移/);
+    write(INTAKE_QUALITY_CONTRACT_PATHS.openapi, generated.openapi);
+    write(OWNER_PROFILE_PATH, JSON.stringify({ schema: 'customer-agent-contract-profile/v1', profile: 'content-intake-usage-v1' }));
+    assert.throws(load, /拒绝降级 content-intake-quality/);
+    rmSync(path.join(repo, builder.INTAKE_QUALITY_APPROVAL_PATH));
+    assert.throws(load, /拒绝降级 content-intake-quality/, 'deleting approval cannot erase the milestone');
+    rmSync(path.join(repo, OWNER_PROFILE_PATH));
+    assert.throws(load, /删除了既有合同 profile/);
+  } finally { rmSync(repo, { recursive: true, force: true }); }
 });
 
 test('regression: quality response cannot claim completed checks without initial history', () => {

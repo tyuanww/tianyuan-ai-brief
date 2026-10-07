@@ -221,4 +221,4 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 
 ### P2 质量 HTTP 候选
 
-[质量检查 HTTP 候选](../01-客服Agent项目/30-开发-进行中/15-P2质量检查HTTP合同候选.md)对应新 OpenAPI 1.18.0 和未变化的 schema.v1.21。复用 `build_customer_agent_backend_contract.mjs --write-intake-quality / --check-intake-quality`；write 仅生成新 OpenAPI，旧 DDL 只核验。`npm --prefix sites run test:intake-quality-contract` 验证生成 wire、字段/容量边界和旧合同保护；对应 check/lint 已进入 machine/release 检查。当前 DRAFT 不增加 export profile，不改冻结批准、运行 ACL 或产品消费锁。
+[质量检查 HTTP 候选](../01-客服Agent项目/30-开发-进行中/15-P2质量检查HTTP合同候选.md)对应新 OpenAPI 1.18.0 和未变化的 schema.v1.21。复用 `build_customer_agent_backend_contract.mjs --write-intake-quality / --check-intake-quality`；write 仅生成新 OpenAPI，旧 DDL 只核验。`npm --prefix sites run test:intake-quality-contract` 验证生成 wire、字段/容量边界和旧合同保护；对应 check/lint 已进入 machine/release 检查。已按[独立批准](../01-客服Agent项目/90-评审/2026-10-07_P2质量HTTP合同批准.md)冻结，profile 为 `content-intake-quality-v1`。export 沿用精确提交/双哈希/规范/批准/生成一致性门；质量批准后拒绝降级到旧 profile，历史提交仍可按其原批准导出。机器注解原字节保留，运行 ACL 不改变。

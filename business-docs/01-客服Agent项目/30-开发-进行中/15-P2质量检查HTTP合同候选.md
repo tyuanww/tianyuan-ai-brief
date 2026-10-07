@@ -1,7 +1,7 @@
 # P2 质量检查 HTTP 合同候选
 
-> 状态：DRAFT · NOT FROZEN · NOT EXPORTED · NOT INTAKE · SYNTHETIC DEVELOPMENT ONLY
-> 2026-10-07。接续用户要求继续 FAQ 合成闭环、审核修复并本地提交的授权。本候选不构成冻结批准；批准、export/intake、真实飞书、生产 ACL、v2-active 和对外交付仍分别办理。
+> 状态：FROZEN · NOT EXPORTED · NOT INTAKE · SYNTHETIC DEVELOPMENT ONLY
+> 2026-10-07 冻结。用户在收到 `ab70d72` 的精确版本对、验证及审查结果后明确批准冻结与 export/intake，仅用于合成开发。绑定见[本次批准](../90-评审/2026-10-07_P2质量HTTP合同批准.md)；本页保留冻结时点，交接实测另记。
 
 **直接前序机器合同：** OpenAPI 1.17.0 SHA-256 `3e0a3f122aefa0bff9c330e105f1a5cbb2b26662fd5f04db1ef3a93ac1bc1121`；DDL schema.v1.21 SHA-256 `5f958e4f7dcde7e11f9a6d38d8339b96654517209a493776acbfc7c3f5202013`。
 
@@ -17,7 +17,7 @@
 
 比较 A 整个内部质量对象直接输出并分批写入，B 有界摘要/样本分页、完整阶段一次原子提交。选择 B：A 暴露内部 staging/risk 占位信息、放大响应，并需另造可中断提交状态；B 复用已验证的质量状态机，只为传输增加有界视图和精简回执。样本页直接复用完整 IntakeEntry，避免客户端跨接口拼装版本。没有新质量引擎、抽样算法、表、DDL 版本或应用授权。
 
-质量内部表是产品 overlay `0023` 的既有实现；本增量成对引用 schema.v1.21 原字节，不把产品 overlay 复制为第二真源。`--write-intake-quality` 只写新 OpenAPI，核验旧 DDL 而不重写。export profile 保持 `content-intake-usage-v1`，新候选目前不能被既有导出器当作已批准合同导出。
+质量内部表是产品 overlay `0023` 的既有实现；本增量成对引用 schema.v1.21 原字节，不把产品 overlay 复制为第二真源。`--write-intake-quality` 只写新 OpenAPI，核验旧 DDL 而不重写。export profile 按本次独立批准选择 `content-intake-quality-v1`，导出同时核验精确提交、双哈希、规范和批准。机器 DRAFT 注解保留已批准原字节，不作为生命周期真源。
 
 ## 2. 最小 wire
 
@@ -66,7 +66,7 @@ POST 和专属 GET 只输出 operationId/action/key/state/phase。state 是该�
 
 本轮实际合同验证与审查见[验证记录](content-intake-quality-candidate/verification.md)。生成器、标准 JSON Schema、前序不变和合成最大字段往返属于候选证据，不等于质量 HTTP 运行已完成。
 
-1. 审阅本页精确版本对并批准冻结；在本仓新增独立批准/导出门，拒绝旧批准、混配、DRAFT、漂移和降级。
+1. 本页精确版本对已按独立记录批准冻结；导出门拒绝旧批准、混配、未冻结规范、漂移和降级，实际 export/intake 结果另记。
 2. 产品仓 versioned intake OpenAPI1.18/schema1.21，保留原DDL和全部 migration checksum，重新生成运行 validator。
 3. API 增加有界投影和窄路由：复用内部质量状态，补 code point/字节验证，POST重放只投影精简回执，GET恢复不泄露完整内部记录；不接生产工厂或新 ACL。
 4. 实际产品会话与 PG 验证：预览→冻结→样本分页→逐条提交→组织审核→发布→第二坐席消费；两会话/跨店/撤权/注销/旧键拒绝；0与5,000项、漏项/重复/hash不匹配、扩样历史不变、关键贡献者、超字节整批拒绝、游标跨阶段及状态变化、COMMIT丢响应/重启原键恢复。

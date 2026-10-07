@@ -206,6 +206,7 @@ export const INTAKE_QUALITY_CONTRACT_PATHS = Object.freeze({
   increment: `${development}/15-P2质量检查HTTP合同候选.md`,
 });
 export const INTAKE_QUALITY_SOURCE = `${development}/content-intake-quality-candidate/openapi.delta.json`;
+export const INTAKE_QUALITY_APPROVAL_PATH = 'business-docs/01-客服Agent项目/90-评审/2026-10-07_P2质量HTTP合同批准.md';
 
 /** Add the bounded quality wire to the unchanged approved predecessor. Internal
  * product quality storage remains product-owned; no new ACL or SQL is implied. */

@@ -79,9 +79,7 @@ test('generator refuses a budget change that was not versioned with the snapshot
  const changed=JSON.parse(read(INTAKE_USAGE_SOURCES.openapi));changed.vocabularyLimit=200;
  assert.throws(()=>buildIntakeUsageContractFiles(file=>file===INTAKE_USAGE_SOURCES.openapi?Buffer.from(JSON.stringify(changed)):read(file)),/budget/);
 });
-test('freeze selects the approved profile without widening snapshot or runtime activation',()=>{
- const profile=JSON.parse(read('business-docs/01-客服Agent项目/30-开发-进行中/contract-profile.v1.json'));
- assert.equal(profile.profile,'content-intake-usage-v1');
+test('usage freeze remains approved without widening snapshot or runtime activation',()=>{
  assertIntakeUsageExportGate(read,{openapiHash:hash(generated.openapi),databaseHash:hash(generated.database)});
  assert.equal(schemas.IntakeSnapshot.properties.sopNodes.maxItems,0);
  assert.equal(schemas.IntakeSnapshot.properties.media.maxItems,0);
@@ -96,6 +94,7 @@ test('usage export binds exact approval, normative hashes, generation and commit
    'business-docs/01-客服Agent项目/90-评审/2026-09-09_后端合成开发批准.md',builder.INTAKE_APPROVAL_PATH]);
   for(const key of ['BACKEND_CONTRACT_PATHS','CLOSURE_CONTRACT_PATHS','OPS_LOOP_CONTRACT_PATHS','COACH_PUBLISH_CONTRACT_PATHS','INTAKE_CONTRACT_PATHS','INTAKE_USAGE_CONTRACT_PATHS'])for(const file of Object.values(builder[key]))files.add(file);
   for(const file of files)write(file,read(file));
+  write(OWNER_PROFILE_PATH,JSON.stringify({schema:'customer-agent-contract-profile/v1',profile:'content-intake-usage-v1'}));
   git('init','-q');git('config','user.email','synthetic@example.invalid');git('config','user.name','Synthetic');
   const commit=()=>{git('add','--all');git('commit','-qm','synthetic usage export fixture');return git('rev-parse','HEAD');};
   const options={repository:repo,expectedOpenapiSha256:hash(generated.openapi),expectedDatabaseSha256:hash(generated.database)};
