@@ -39,6 +39,9 @@ import {
   INTAKE_QUALITY_CONTRACT_PATHS,
   INTAKE_QUALITY_APPROVAL_PATH,
   buildIntakeQualityContractFiles,
+  INTAKE_MANAGEMENT_CONTRACT_PATHS,
+  INTAKE_MANAGEMENT_APPROVAL_PATH,
+  buildIntakeManagementContractFiles,
 } from "./build_customer_agent_backend_contract.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -46,7 +49,7 @@ const repositoryRoot = path.resolve(path.dirname(scriptPath), "../..");
 const defaultOutputRoot = path.join(repositoryRoot, "output/customer-agent-contract-sets");
 
 export const CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v1";
-export const CONTRACT_SET_TOOL_VERSION = "1.5.0";
+export const CONTRACT_SET_TOOL_VERSION = "1.6.0";
 
 export const CONTRACT_SOURCE_PATHS = Object.freeze({
   architecture: "business-docs/01-客服Agent项目/20-设计-进行中/37-架构SSOT-v1.md",
@@ -318,6 +321,13 @@ export function assertIntakeQualityExportGate(readSource, hashes) {
   });
 }
 
+export function assertIntakeManagementExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths: INTAKE_MANAGEMENT_CONTRACT_PATHS, predecessor: INTAKE_QUALITY_CONTRACT_PATHS,
+    approvalPath: INTAKE_MANAGEMENT_APPROVAL_PATH, label: 'P2 管理上下文合同', anchor: '**P2 管理上下文机器合同增量：**',
+  });
+}
+
 export function loadContractSetFromCommit({
   repository = repositoryRoot,
   sourceGitSha,
@@ -325,6 +335,11 @@ export function loadContractSetFromCommit({
   expectedDatabaseSha256,
 }) {
   const exactSourceGitSha = resolveExactSourceCommit(repository, sourceGitSha);
+  // Approval milestones are historical. A shallow boundary can hide a removed
+  // approval and make a downgraded profile look like an unapproved predecessor.
+  if (gitText(repository, ["rev-parse", "--is-shallow-repository"]) !== "false") {
+    throw new Error("合同导出需要完整 Git 历史；浅克隆无法证明批准里程碑，拒绝导出");
+  }
   const readSource = (sourcePath) => gitBlob(repository, exactSourceGitSha, sourcePath);
   // Missing profile is supported only for historical commits. A present but invalid profile
   // fails closed; neither the working tree nor a manifest may select source paths.
@@ -340,14 +355,16 @@ export function loadContractSetFromCommit({
   let intakeProfile = false;
   let intakeUsageProfile = false;
   let intakeQualityProfile = false;
+  let intakeManagementProfile = false;
   if (ownerProfile) {
     const profile = JSON.parse(utf8(readSource(OWNER_PROFILE_PATH), OWNER_PROFILE_PATH));
     if (Object.keys(profile).sort().join(",") !== "profile,schema"
         || profile.schema !== "customer-agent-contract-profile/v1"
-        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2", "content-intake-usage-v1", "content-intake-quality-v1"].includes(profile.profile)) {
+        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2", "content-intake-usage-v1", "content-intake-quality-v1", "content-intake-management-v1"].includes(profile.profile)) {
       throw new Error("未知或不封闭的合同来源 profile");
     }
-    intakeQualityProfile = profile.profile === "content-intake-quality-v1";
+    intakeManagementProfile = profile.profile === "content-intake-management-v1";
+    intakeQualityProfile = intakeManagementProfile || profile.profile === "content-intake-quality-v1";
     intakeUsageProfile = intakeQualityProfile || profile.profile === "content-intake-usage-v1";
     intakeProfile = intakeUsageProfile || profile.profile === "content-intake-v2";
     coachPublishProfile = intakeProfile || profile.profile === "coach-publish-v1";
@@ -366,7 +383,10 @@ export function loadContractSetFromCommit({
   if (!intakeProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake profile");
   if (!intakeUsageProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_USAGE_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-usage profile");
   if (!intakeQualityProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_QUALITY_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-quality profile");
-  const sourcePaths = intakeQualityProfile
+  if (!intakeManagementProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_MANAGEMENT_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-management profile");
+  const sourcePaths = intakeManagementProfile
+    ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_MANAGEMENT_CONTRACT_PATHS.openapi, database: INTAKE_MANAGEMENT_CONTRACT_PATHS.database }
+    : intakeQualityProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_QUALITY_CONTRACT_PATHS.openapi, database: INTAKE_QUALITY_CONTRACT_PATHS.database }
     : intakeUsageProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_USAGE_CONTRACT_PATHS.openapi, database: INTAKE_USAGE_CONTRACT_PATHS.database }
@@ -526,9 +546,16 @@ export function loadContractSetFromCommit({
   if (intakeQualityProfile) {
     const generated = buildIntakeQualityContractFiles(readSource);
     for (const key of ["database", "openapi"]) {
-      if (!buffers[key].equals(generated[key])) throw new Error(`P2 质量 HTTP 合同派生产物漂移：${key}`);
+      if (!readSource(INTAKE_QUALITY_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`P2 质量 HTTP 合同派生产物漂移：${key}`);
     }
-    assertIntakeQualityExportGate(readSource, {databaseHash, openapiHash});
+    assertIntakeQualityExportGate(readSource, {databaseHash: sha256(generated.database), openapiHash: sha256(generated.openapi)});
+  }
+  if (intakeManagementProfile) {
+    const generated = buildIntakeManagementContractFiles(readSource);
+    for (const key of ["database", "openapi"]) {
+      if (!buffers[key].equals(generated[key])) throw new Error(`P2 管理上下文合同派生产物漂移：${key}`);
+    }
+    assertIntakeManagementExportGate(readSource, {databaseHash, openapiHash});
   }
 
   const openapiVersion = extractOpenapiVersion(sources.openapi);

@@ -245,9 +245,10 @@ export const INTAKE_MANAGEMENT_CONTRACT_PATHS = Object.freeze({
   increment: `${development}/16-P2管理上下文合同候选.md`,
 });
 export const INTAKE_MANAGEMENT_SOURCE = `${development}/content-intake-management-candidate/openapi.delta.json`;
+export const INTAKE_MANAGEMENT_APPROVAL_PATH = 'business-docs/01-客服Agent项目/90-评审/2026-10-07_P2管理上下文合同批准.md';
 
 /** Read-only upload context. Existing principals wire and identity storage stay
- * owned by their frozen contracts; no new directory, authority or export profile. */
+ * owned by their frozen contracts. Lifecycle approval never rewrites these bytes. */
 export function buildIntakeManagementContractFiles(readSource) {
   const base = buildIntakeQualityContractFiles(readSource);
   const delta = JSON.parse(readSource(INTAKE_MANAGEMENT_SOURCE));

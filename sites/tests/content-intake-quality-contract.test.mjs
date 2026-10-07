@@ -3,7 +3,6 @@ import test from 'node:test';
 import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import Ajv from 'ajv/dist/2020.js';
@@ -171,17 +170,6 @@ test('generator rejects collisions instead of mutating the approved predecessor'
   }
 });
 
-test('historical draft commit still exports only its then-approved pair', () => {
-  const repository = fileURLToPath(root);
-  const sourceGitSha = 'ab70d723bab73c9a9b3bcd4f20a3e6bc9ecbd740';
-  const exported = loadContractSetFromCommit({ repository, sourceGitSha,
-    expectedOpenapiSha256: hash(previous.openapi), expectedDatabaseSha256: hash(previous.database) });
-  assert.equal(exported.manifest.openapi.version, '1.17.0');
-  assert.throws(() => loadContractSetFromCommit({ repository, sourceGitSha,
-    expectedOpenapiSha256: hash(generated.openapi), expectedDatabaseSha256: hash(generated.database) }), /OpenAPI blob 哈希不匹配/);
-  assert.equal(JSON.parse(execFileSync('git', ['show', `${sourceGitSha}:${OWNER_PROFILE_PATH}`], { cwd: repository })).profile, 'content-intake-usage-v1');
-});
-
 test('quality freeze exports only the approved exact pair and rejects every downgrade path', () => {
   const repo = mkdtempSync(path.join(tmpdir(), 'intake-quality-export-'));
   const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -204,6 +192,14 @@ test('quality freeze exports only the approved exact pair and rejects every down
     const commit = () => { git('add', '--all'); git('commit', '-qm', 'synthetic quality export fixture'); return git('rev-parse', 'HEAD'); };
     const options = { repository: repo, expectedOpenapiSha256: hash(generated.openapi), expectedDatabaseSha256: hash(generated.database) };
     const load = () => loadContractSetFromCommit({ ...options, sourceGitSha: commit() });
+    // The predecessor is a complete local fixture, independent of branch history.
+    write(OWNER_PROFILE_PATH, JSON.stringify({ schema: 'customer-agent-contract-profile/v1', profile: 'content-intake-usage-v1' }));
+    const historical = { ...options, sourceGitSha: commit(), expectedOpenapiSha256: hash(previous.openapi), expectedDatabaseSha256: hash(previous.database) };
+    const predecessor = loadContractSetFromCommit(historical);
+    assert.equal(predecessor.manifest.openapi.version, '1.17.0');
+    assert.ok(predecessor.files.get(predecessor.manifest.openapi.file).equals(previous.openapi));
+    assert.throws(() => loadContractSetFromCommit({ ...historical, expectedOpenapiSha256: options.expectedOpenapiSha256 }), /OpenAPI blob 哈希不匹配/);
+    write(OWNER_PROFILE_PATH, JSON.stringify({ schema: 'customer-agent-contract-profile/v1', profile: 'content-intake-quality-v1' }));
     assert.throws(load, 'usage approval cannot approve new quality HTTP');
     const approval = read(builder.INTAKE_QUALITY_APPROVAL_PATH).toString();
     write(builder.INTAKE_QUALITY_APPROVAL_PATH, approval.replace(options.expectedOpenapiSha256, 'f'.repeat(64)));
