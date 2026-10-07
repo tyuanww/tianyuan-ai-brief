@@ -198,6 +198,45 @@ export function buildIntakeUsageContractFiles(readSource) {
     Buffer.from(`\n-- BEGIN INTAKE USAGE ${digest(storage)}\n`),storage,Buffer.from('-- END INTAKE USAGE\n')]);
   return {openapi:Buffer.from(openapi),database};
 }
+
+export const INTAKE_QUALITY_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.18.yaml`,
+  // HTTP-only increment: the exact frozen DDL is paired, not copied or renamed.
+  database: INTAKE_USAGE_CONTRACT_PATHS.database,
+  increment: `${development}/15-P2质量检查HTTP合同候选.md`,
+});
+export const INTAKE_QUALITY_SOURCE = `${development}/content-intake-quality-candidate/openapi.delta.json`;
+
+/** Add the bounded quality wire to the unchanged approved predecessor. Internal
+ * product quality storage remains product-owned; no new ACL or SQL is implied. */
+export function buildIntakeQualityContractFiles(readSource) {
+  const base = buildIntakeUsageContractFiles(readSource);
+  const delta = JSON.parse(readSource(INTAKE_QUALITY_SOURCE));
+  let openapi = base.openapi.toString('utf8');
+  const insert = (anchor, value) => {
+    if (openapi.split(anchor).length !== 2) throw new Error(`Non-unique quality anchor: ${anchor}`);
+    openapi = openapi.replace(anchor, anchor + value);
+  };
+  if (!openapi.includes('  version: 1.17.0\n')) throw new Error('Quality predecessor must be 1.17.0');
+  openapi = openapi.replace('  version: 1.17.0\n', '  version: 1.18.0\n');
+  for (const [route, item] of Object.entries(delta.paths)) {
+    if (!route.startsWith('/v1/intake/') || openapi.includes(`  ${route}:`) || openapi.includes(`  ${JSON.stringify(route)}:`)) {
+      throw new Error(`Quality route collision or namespace: ${route}`);
+    }
+    const operations = Object.fromEntries(Object.entries(item).map(([method, operation]) => {
+      if (!['get', 'post'].includes(method)) throw new Error(`Unsupported quality method: ${method}`);
+      return [method, { ...operation, security: [{ ProductSession: [] }] }];
+    }));
+    insert('paths:\n', `  ${JSON.stringify(route)}: ${JSON.stringify(operations)}\n`);
+  }
+  for (const [name, schema] of Object.entries(delta.components.schemas)) {
+    if (!/^IntakeQuality[A-Za-z0-9]+$/.test(name) || openapi.includes(`    ${name}:`)) throw new Error(`Quality schema collision: ${name}`);
+    insert('  schemas:\n', `    ${name}: ${JSON.stringify(schema)}\n`);
+  }
+  openapi += '\nx-content-intake-quality-development: ' + JSON.stringify({ status: 'DRAFT', runtime_activated: false,
+    sqlContract: 'schema.v1.21', transactionImplementationRequired: true }) + '\n';
+  return { openapi: Buffer.from(openapi), database: base.database };
+}
 const PUBLISH_OWNER_ONLY = `      operationId: publishContent
       summary: 将 staged 批次发布为新的 current release
       description: |
@@ -280,19 +319,20 @@ export function buildOpsLoopContractFiles(readSource) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish','--write-intake','--check-intake','--write-intake-usage','--check-intake-usage'];
+  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish','--write-intake','--check-intake','--write-intake-usage','--check-intake-usage','--write-intake-quality','--check-intake-quality'];
   if (args.length !== 1 || !allowed.includes(args[0])) throw new Error(`Use exactly one of: ${allowed.join(', ')}`);
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   const coachPublish = args[0].endsWith('-coach-publish');
   const intake = args[0].endsWith('-intake');
   const usage = args[0].endsWith('-intake-usage');
+  const quality = args[0].endsWith('-intake-quality');
   const opsLoop = args[0].endsWith('-ops-loop');
   const closure = args[0].endsWith('-closure');
-  const files = (usage ? buildIntakeUsageContractFiles : intake ? buildIntakeContractFiles : coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
-  const paths = usage ? INTAKE_USAGE_CONTRACT_PATHS : intake ? INTAKE_CONTRACT_PATHS : coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
+  const files = (quality ? buildIntakeQualityContractFiles : usage ? buildIntakeUsageContractFiles : intake ? buildIntakeContractFiles : coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
+  const paths = quality ? INTAKE_QUALITY_CONTRACT_PATHS : usage ? INTAKE_USAGE_CONTRACT_PATHS : intake ? INTAKE_CONTRACT_PATHS : coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
   for (const [key,bytes] of Object.entries(files)) {
     const target = path.join(root,paths[key]);
-    if (args[0].startsWith('--write')) writeFileSync(target,bytes);
+    if (args[0].startsWith('--write') && !(quality && key === 'database')) writeFileSync(target,bytes);
     else if (!readFileSync(target).equals(bytes)) throw new Error(`Backend generated drift: ${key}`);
     console.log(`${key} ${digest(bytes)} ${bytes.length} bytes`);
   }

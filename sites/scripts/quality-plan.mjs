@@ -12,6 +12,7 @@ export const releaseSteps = [
   'test:coach-publish-candidate', 'check:coach-publish-contract', 'lint:coach-publish-openapi',
   'test:intake-contract', 'check:intake-contract', 'lint:intake-openapi',
   'test:intake-usage-contract', 'check:intake-usage-contract', 'lint:intake-usage-openapi',
+  'test:intake-quality-contract', 'check:intake-quality-contract', 'lint:intake-quality-openapi',
   'test:sql-grammar', 'test:architecture-contract', 'check:arch-diagrams', 'audit:deps',
 ];
 

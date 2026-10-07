@@ -218,3 +218,7 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 ### P2 使用资格上下文候选
 
 [使用资格上下文与词项预算](../01-客服Agent项目/30-开发-进行中/14-P2使用资格上下文合同候选.md)是已批准冻结的合成开发增量（OpenAPI 1.17.0 / schema.v1.21），profile 为 `content-intake-usage-v1`。生成/校验复用 `build_customer_agent_backend_contract.mjs --write-intake-usage / --check-intake-usage`；`test:intake-usage-contract` 验证实际 wire，`test:intake-usage-contract:pg` 复用原隔离 PG15 执行器并追加会话/上下文存储探针。旧 1.16 / 1.20 和其批准记录不变。[本次独立批准](../01-客服Agent项目/90-评审/2026-10-06_P2使用资格上下文合同批准.md)绑定精确双哈希；export 从完整 Git 提交读取规范、批准及生成源，拒绝缺批准、DRAFT、字节漂移和批准后降级。旧合同与不可变 export 不覆盖。
+
+### P2 质量 HTTP 候选
+
+[质量检查 HTTP 候选](../01-客服Agent项目/30-开发-进行中/15-P2质量检查HTTP合同候选.md)对应新 OpenAPI 1.18.0 和未变化的 schema.v1.21。复用 `build_customer_agent_backend_contract.mjs --write-intake-quality / --check-intake-quality`；write 仅生成新 OpenAPI，旧 DDL 只核验。`npm --prefix sites run test:intake-quality-contract` 验证生成 wire、字段/容量边界和旧合同保护；对应 check/lint 已进入 machine/release 检查。当前 DRAFT 不增加 export profile，不改冻结批准、运行 ACL 或产品消费锁。
