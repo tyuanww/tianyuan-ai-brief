@@ -45,6 +45,7 @@ import {
   INTAKE_DIRECT_CONTRACT_PATHS,
   INTAKE_DIRECT_APPROVAL_PATH,
   buildIntakeDirectContractFiles,
+  buildIntakeShopDirectoryContractFiles, INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS, INTAKE_SHOP_DIRECTORY_SOURCES, INTAKE_RUNTIME_SOURCES,
 } from "./build_customer_agent_backend_contract.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -52,7 +53,21 @@ const repositoryRoot = path.resolve(path.dirname(scriptPath), "../..");
 const defaultOutputRoot = path.join(repositoryRoot, "output/customer-agent-contract-sets");
 
 export const CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v1";
-export const CONTRACT_SET_TOOL_VERSION = "1.7.0";
+export const CONTRACT_SET_TOOL_VERSION = "1.8.0";
+export const RUNTIME_CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v2";
+export const INTAKE_RUNTIME_APPROVAL_PATH = "business-docs/01-客服Agent项目/90-评审/2026-10-08_P2运行接入合同批准.md";
+export const RUNTIME_BUNDLE_PATHS = Object.freeze({
+  installation: {source_path:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.installation,file:'intake-runtime-installation.v1.json'},
+  roles: {source_path:INTAKE_RUNTIME_SOURCES.roles,file:'intake-runtime-roles.v1.sql'},
+  organization: {source_path:INTAKE_RUNTIME_SOURCES.organization,file:'intake-runtime-organization.v1.sql'},
+  session: {source_path:INTAKE_RUNTIME_SOURCES.session,file:'intake-runtime-session.v1.sql'},
+  acl: {source_path:INTAKE_RUNTIME_SOURCES.acl,file:'intake-runtime-acl.v1.sql'},
+  directoryAcl: {source_path:INTAKE_RUNTIME_SOURCES.directoryAcl,file:'intake-runtime-directory-acl.v1.sql'},
+  directory: {source_path:INTAKE_SHOP_DIRECTORY_SOURCES.storage,file:'intake-shop-directory.v1.sql'},
+  provenance: {source_path:'business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/provenance.json',file:'intake-runtime-provenance.v1.json'},
+  protocol: {source_path:'business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/protocol.json',file:'intake-runtime-protocol.v1.json'},
+});
+
 
 export const CONTRACT_SOURCE_PATHS = Object.freeze({
   architecture: "business-docs/01-客服Agent项目/20-设计-进行中/37-架构SSOT-v1.md",
@@ -338,6 +353,26 @@ export function assertIntakeDirectExportGate(readSource, hashes) {
   });
 }
 
+export function assertIntakeRuntimeExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS, predecessor:INTAKE_DIRECT_CONTRACT_PATHS,
+    approvalPath:INTAKE_RUNTIME_APPROVAL_PATH,label:'P2 运行接入合同',anchor:'**P2 运行接入机器合同增量：**',
+  });
+  const generated=buildIntakeShopDirectoryContractFiles(readSource);
+  for (const key of ['openapi','database','installation']) {
+    if (!readSource(INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`运行接入派生产物漂移：${key}`);
+  }
+  const installHash=sha256(generated.installation);
+  for (const [file,anchor] of [[INTAKE_RUNTIME_APPROVAL_PATH,'**批准安装清单：**'],[INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.increment,'**运行安装清单：**']]) {
+    const lines=linesForAnchor(utf8(readSource(file),file),file,anchor);
+    if (lines.length!==1 || lines[0].match(/[0-9a-f]{64}/g)?.join()!==installHash) throw new Error('运行安装清单批准哈希不一致');
+  }
+  const install=JSON.parse(generated.installation);
+  const provenance=JSON.parse(readSource(RUNTIME_BUNDLE_PATHS.provenance.source_path));
+  if (JSON.stringify(install.productMode.implementation)!==JSON.stringify(provenance.implementationDependencies)) throw new Error('运行overlay依赖不一致');
+  return install;
+}
+
 export function loadContractSetFromCommit({
   repository = repositoryRoot,
   sourceGitSha,
@@ -367,14 +402,16 @@ export function loadContractSetFromCommit({
   let intakeQualityProfile = false;
   let intakeManagementProfile = false;
   let intakeDirectProfile = false;
+  let intakeRuntimeProfile = false;
   if (ownerProfile) {
     const profile = JSON.parse(utf8(readSource(OWNER_PROFILE_PATH), OWNER_PROFILE_PATH));
     if (Object.keys(profile).sort().join(",") !== "profile,schema"
         || profile.schema !== "customer-agent-contract-profile/v1"
-        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2", "content-intake-usage-v1", "content-intake-quality-v1", "content-intake-management-v1", "content-intake-direct-v1"].includes(profile.profile)) {
+        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2", "content-intake-usage-v1", "content-intake-quality-v1", "content-intake-management-v1", "content-intake-direct-v1", "content-intake-runtime-v1"].includes(profile.profile)) {
       throw new Error("未知或不封闭的合同来源 profile");
     }
-    intakeDirectProfile = profile.profile === "content-intake-direct-v1";
+    intakeRuntimeProfile = profile.profile === "content-intake-runtime-v1";
+    intakeDirectProfile = intakeRuntimeProfile || profile.profile === "content-intake-direct-v1";
     intakeManagementProfile = intakeDirectProfile || profile.profile === "content-intake-management-v1";
     intakeQualityProfile = intakeManagementProfile || profile.profile === "content-intake-quality-v1";
     intakeUsageProfile = intakeQualityProfile || profile.profile === "content-intake-usage-v1";
@@ -397,7 +434,10 @@ export function loadContractSetFromCommit({
   if (!intakeQualityProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_QUALITY_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-quality profile");
   if (!intakeManagementProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_MANAGEMENT_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-management profile");
   if (!intakeDirectProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_DIRECT_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-direct profile");
-  const sourcePaths = intakeDirectProfile
+  if (!intakeRuntimeProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_RUNTIME_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-runtime profile");
+  const sourcePaths = intakeRuntimeProfile
+    ? { ...CONTRACT_SOURCE_PATHS,openapi:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.openapi,database:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.database }
+    : intakeDirectProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_DIRECT_CONTRACT_PATHS.openapi, database: INTAKE_DIRECT_CONTRACT_PATHS.database }
     : intakeManagementProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_MANAGEMENT_CONTRACT_PATHS.openapi, database: INTAKE_MANAGEMENT_CONTRACT_PATHS.database }
@@ -576,10 +616,12 @@ export function loadContractSetFromCommit({
   if (intakeDirectProfile) {
     const generated = buildIntakeDirectContractFiles(readSource);
     for (const key of ["database", "openapi"]) {
-      if (!buffers[key].equals(generated[key])) throw new Error(`P2 确认直发合同派生产物漂移：${key}`);
+      if (!(intakeRuntimeProfile ? readSource(INTAKE_DIRECT_CONTRACT_PATHS[key]) : buffers[key]).equals(generated[key])) throw new Error(`P2 确认直发合同派生产物漂移：${key}`);
     }
-    assertIntakeDirectExportGate(readSource, {databaseHash, openapiHash});
+    assertIntakeDirectExportGate(readSource, {databaseHash:sha256(generated.database),openapiHash:sha256(generated.openapi)});
   }
+
+  if (intakeRuntimeProfile) assertIntakeRuntimeExportGate(readSource,{databaseHash,openapiHash});
 
   const openapiVersion = extractOpenapiVersion(sources.openapi);
   const databaseVersion = extractDatabaseVersion(sources.database);
@@ -592,7 +634,7 @@ export function loadContractSetFromCommit({
   });
   const databaseFile = `schema-v${databaseVersion.replace(/^schema\.v/, "")}.sql`;
   const manifest = {
-    schema: CONTRACT_SET_SCHEMA,
+    schema: intakeRuntimeProfile ? RUNTIME_CONTRACT_SET_SCHEMA : CONTRACT_SET_SCHEMA,
     contract_set_id: contractSetId,
     source_repository: "ai-赋能立项",
     source_git_sha: exactSourceGitSha,
@@ -613,12 +655,20 @@ export function loadContractSetFromCommit({
       bytes: buffers.database.byteLength,
     },
   };
+  const runtimeFiles=new Map();
+  if (intakeRuntimeProfile) {
+    manifest.runtime=Object.fromEntries(Object.entries(RUNTIME_BUNDLE_PATHS).map(([key,descriptor])=>{
+      const bytes=readSource(descriptor.source_path);runtimeFiles.set(descriptor.file,bytes);
+      return [key,{version:'1',...descriptor,sha256:sha256(bytes),bytes:bytes.byteLength}];
+    }));
+  }
   return {
     manifest,
     files: new Map([
       ["contract-set.json", Buffer.from(renderContractSetManifest(manifest), "utf8")],
       [manifest.openapi.file, buffers.openapi],
       [manifest.database.file, buffers.database],
+      ...runtimeFiles,
     ]),
   };
 }
@@ -732,14 +782,24 @@ function parseContractSetManifest(content) {
   } catch (error) {
     throw new Error(`contract-set.json 不是合法 JSON：${error.message}`);
   }
-  assertExactKeys(manifest, REQUIRED_MANIFEST_KEYS, "contract-set.json");
+  const isRuntime=manifest.schema===RUNTIME_CONTRACT_SET_SCHEMA;
+  assertExactKeys(manifest, isRuntime ? [...REQUIRED_MANIFEST_KEYS,"runtime"] : REQUIRED_MANIFEST_KEYS, "contract-set.json");
   assertExactKeys(manifest.openapi, REQUIRED_CONTRACT_KEYS, "contract-set.json.openapi");
   assertExactKeys(manifest.database, REQUIRED_CONTRACT_KEYS, "contract-set.json.database");
-  if (manifest.schema !== CONTRACT_SET_SCHEMA) throw new Error("contract-set schema 不受支持");
+  if (manifest.schema !== CONTRACT_SET_SCHEMA && !isRuntime) throw new Error("contract-set schema 不受支持");
+  if (isRuntime) {
+    if (manifest.openapi.version!=='1.21.0' || manifest.database.version!=='schema.v1.23') throw new Error('runtime bundle只支持1.21.0/schema.v1.23');
+    assertExactKeys(manifest.runtime,Object.keys(RUNTIME_BUNDLE_PATHS),'contract-set.runtime');
+    for (const [key,expected] of Object.entries(RUNTIME_BUNDLE_PATHS)) {
+      const actual=manifest.runtime[key]; assertExactKeys(actual,REQUIRED_CONTRACT_KEYS,`runtime.${key}`);
+      if (actual.version!=='1' || actual.file!==expected.file || actual.source_path!==expected.source_path) throw new Error(`runtime工件不匹配：${key}`);
+    }
+  }
   if (!GIT_SHA_PATTERN.test(manifest.source_git_sha)) throw new Error("manifest source_git_sha 非法");
   for (const [label, contract] of [
     ["OpenAPI", manifest.openapi],
     ["DDL", manifest.database],
+    ...Object.entries(manifest.runtime ?? {}),
   ]) {
     normalizeExpectedHash(contract.sha256, `${label} manifest SHA-256`);
     if (path.basename(contract.file) !== contract.file) throw new Error(`${label} 文件名越界`);
@@ -864,7 +924,7 @@ export async function verifyContractSetDirectory({
     throw new Error("manifest DDL SHA-256 与调用方预期不一致");
   }
 
-  const allowedNames = ["contract-set.json", manifest.openapi.file, manifest.database.file].sort();
+  const allowedNames = ["contract-set.json", manifest.openapi.file, manifest.database.file,...Object.values(manifest.runtime ?? {}).map(item=>item.file)].sort();
   const actualNames = (await readdir(directory)).sort();
   if (actualNames.join("\n") !== allowedNames.join("\n")) {
     throw new Error("合同集目录包含缺失或未声明成员");
@@ -872,12 +932,33 @@ export async function verifyContractSetDirectory({
   for (const [label, contract] of [
     ["OpenAPI", manifest.openapi],
     ["DDL", manifest.database],
+    ...Object.entries(manifest.runtime ?? {}),
   ]) {
     const content = await readRegularFileNoFollow(path.join(directory, contract.file), canonicalDirectory);
     if (content.byteLength !== contract.bytes) throw new Error(`${label} bytes 不匹配`);
     if (sha256(content) !== contract.sha256) throw new Error(`${label} SHA-256 不匹配`);
   }
 
+  if (manifest.runtime) {
+    const installation=JSON.parse(utf8(await readRegularFileNoFollow(path.join(directory,manifest.runtime.installation.file),canonicalDirectory),'runtime installation'));
+    if (installation.schema!=='content-intake-installation/v1' || installation.openapi.sha256!==manifest.openapi.sha256
+      || installation.database.sha256!==manifest.database.sha256 || installation.companionAclRequired!==true
+      || installation.productMode?.skipMissingDependencies!==false) throw new Error('runtime安装清单不匹配');
+    assertExactKeys(installation.sources,Object.keys(RUNTIME_BUNDLE_PATHS).filter(key=>key!=='installation'),'runtime installation sources');
+    for (const [key,item] of Object.entries(installation.sources)) {
+      if (item.path!==manifest.runtime[key]?.source_path || item.sha256!==manifest.runtime[key]?.sha256) throw new Error(`runtime安装工件哈希不一致：${key}`);
+    }
+    const expectedOrder=['product-migrations','roles','organization','session','directory','directoryAcl','acl','environment-login-bindings'];
+    const expectedArtifacts=['openapi','database',...Object.keys(RUNTIME_BUNDLE_PATHS)].sort();
+    if (installation.openapi.path!==manifest.openapi.source_path || installation.database.path!==manifest.database.source_path
+      || installation.productMode.atomicCandidateInstall!==true
+      || JSON.stringify(installation.productMode.order)!==JSON.stringify(expectedOrder)
+      || !Array.isArray(installation.requiredBundleArtifacts)
+      || JSON.stringify([...installation.requiredBundleArtifacts].sort())!==JSON.stringify(expectedArtifacts)
+      || installation.capabilityLogin!==false || installation.environmentCredentialsIncluded!==false) throw new Error('runtime安装边界不一致');
+    const provenance=JSON.parse(utf8(await readRegularFileNoFollow(path.join(directory,manifest.runtime.provenance.file),canonicalDirectory),'runtime provenance'));
+    if (JSON.stringify(installation.productMode.implementation)!==JSON.stringify(provenance.implementationDependencies)) throw new Error('runtime overlay依赖不一致');
+  }
   if (againstSource) {
     const expected = loadContractSetFromCommit({
       repository,

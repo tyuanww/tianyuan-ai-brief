@@ -17,7 +17,7 @@ const run = (name, args) => execFileSync(path.join(bin, name), args, {
 });
 assert.match(run('postgres', ['--version']), /PostgreSQL\) 15\./);
 const dir = mkdtempSync(path.join(tmpdir(), 'intake-shop-directory-'));
-const evidence = path.join(root, 'output/content-intake-shop-directory-contract/lifecycle');
+const evidence = path.join(root, 'output/content-intake-runtime-contract/directory');
 mkdirSync(evidence, { recursive: true });
 const args = ['-X', '-h', dir, '-p', '55444', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1'];
 const sql = query => run('psql', [...args, '-Atc', query]).trim();
@@ -291,6 +291,70 @@ try {
   }
   assert.match(sql(`SELECT proconfig::text FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='content_intake' AND p.proname='read_shop_directory'`), /search_path=pg_catalog/);
   checks += 4;
+  // The candidate capability layer is exercised by real NOINHERIT environment
+  // logins. They receive exactly one membership, then SET ROLE on connection.
+  const purposeRoles={usage:'intake_usage',business:'intake_business',worker:'intake_worker',organization:'intake_org_writer',key:'intake_directory_key_operator'};
+  for (const [purpose,capability] of Object.entries(purposeRoles)) {
+    sql(`CREATE ROLE env_${purpose} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS; GRANT ${capability} TO env_${purpose}`);
+    assert.equal(sql(`SELECT (NOT rolcanlogin AND NOT rolinherit AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolbypassrls AND NOT rolreplication)::text FROM pg_roles WHERE rolname=${quote(capability)}`),'true');
+    checks+=1;
+  }
+  const asPurpose=(purpose,script)=>execFileSync(path.join(bin,'psql'),[...args,'-U',`env_${purpose}`,'-Atq'],{cwd:root,env,input:`SET ROLE ${purposeRoles[purpose]}; SELECT intake_runtime.assert_purpose(${quote(purpose==='key'?'directory-key':purpose)}) AS asserted \\gset\n${script}`,encoding:'utf8',stdio:['pipe','pipe','pipe'],timeout:10000});
+  for (const purpose of Object.keys(purposeRoles)) {
+    assert.equal(asPurpose(purpose,'SELECT session_user||\'/\'||current_user;').trim(),`env_${purpose}/${purposeRoles[purpose]}`);
+    assert.throws(()=>asPurpose(purpose,'SET ROLE intake_runtime_fn_owner;'),/permission denied/);
+    assert.throws(()=>asPurpose(purpose,'SET ROLE intake_directory_fn_owner;'),/permission denied/);
+    checks+=3;
+  }
+  assert.throws(()=>asPurpose('usage','SET ROLE intake_business;'),/permission denied/);
+  assert.throws(()=>execFileSync(path.join(bin,'psql'),[...args,'-U','env_usage','-Atc',"SELECT content_intake.prepare_shop_directory_read('"+SESSION+"',NULL,1)"],{cwd:root,env,encoding:'utf8',stdio:['pipe','pipe','pipe']}),/permission denied/);
+  sql('GRANT intake_worker TO env_usage');
+  assert.throws(()=>asPurpose('usage','SELECT 1;'),/INTAKE_RUNTIME_ROLE_BOUNDARY/);
+  sql('REVOKE intake_worker FROM env_usage');
+  sql('ALTER ROLE env_usage REPLICATION');
+  assert.throws(()=>asPurpose('usage','SELECT 1;'),/INTAKE_RUNTIME_ROLE_BOUNDARY/);
+  sql('ALTER ROLE env_usage NOREPLICATION; ALTER ROLE intake_usage REPLICATION');
+  assert.throws(()=>asPurpose('usage','SELECT 1;'),/INTAKE_RUNTIME_ROLE_BOUNDARY/);
+  sql('ALTER ROLE intake_usage NOREPLICATION');
+  checks+=2;
+  assert.throws(()=>sql("SET ROLE intake_usage; SELECT intake_runtime.assert_purpose('usage')"),/INTAKE_RUNTIME_ROLE_BOUNDARY/);
+  // Core reference has no product-owned publication bodies. Companion ACL must
+  // fail before grants instead of silently skipping the missing implementation.
+  assert.throws(()=>run('psql',[...args,'-1','-f','business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/purpose-acl.sql']),/INTAKE_RUNTIME_IMPLEMENTATION_REQUIRED/);
+  assert.equal(sql("SELECT has_function_privilege('intake_business','intake_runtime.lock_product_session(text,text)','EXECUTE')"),'f');
+  const capReader=createShopDirectoryConsumer(script=>asPurpose('usage',script));
+  const capWriter=createShopDirectoryConsumer(script=>asPurpose('business',script));
+  asPurpose('key',`SELECT content_intake.rotate_shop_directory_key('tenant-a','app-a','core-key',${quote(SIGNING_KEY)},timestamptz '${GRANT_END}',0,'synthetic role proof','core-key-install');`);
+  assert.equal((await capReader.read({sessionHash:SESSION,limit:1})).ok,true);
+  assert.equal((await capWriter.write({sessionHash:sessionFor('steward'),shopId:'core-role',displayName:'合成角色店',expectedRevision:revisionOf('tenant-a','app-a')})).ok,true);
+  assert.equal((await capReader.write({sessionHash:sessionFor('steward'),shopId:'forbidden-core-role',displayName:'不得写入',expectedRevision:revisionOf('tenant-a','app-a')})).ok,false);
+  assert.throws(()=>asPurpose('usage','SELECT key_material FROM content_intake.shop_directory_keys'),/permission denied/);
+  assert.throws(()=>asPurpose('business',"UPDATE backend_identity.subject_bindings SET enabled=true"),/permission denied/);
+  // Clear only this synthetic key fixture before the existing lifecycle checks;
+  // privileged fixture owner is explicitly outside application capabilities.
+  sql('DELETE FROM content_intake.shop_directory_keys; ALTER TABLE content_intake.shop_directory_key_events DISABLE TRIGGER shop_directory_key_event_immutable; DELETE FROM content_intake.shop_directory_key_events; ALTER TABLE content_intake.shop_directory_key_events ENABLE TRIGGER shop_directory_key_event_immutable;');
+  checks+=11;
+  const org=query=>asPurpose('organization',`BEGIN; SELECT backend_review.lock_content() AS locked \\gset\n${query}; COMMIT;`);
+  const binding=(version,enabled,openid='synthetic-open-a')=>`INSERT INTO intake_organization.bindings VALUES('tenant-a','app-a','brand-agent',${version},${quote(HASH)},${quote(openid)},${enabled},timestamptz '${UNTIL}'); INSERT INTO intake_organization.current_bindings VALUES('tenant-a','app-a','brand-agent',${version},${quote(openid)}) ON CONFLICT(tenant_id,app_id,principal_id) DO UPDATE SET binding_version=EXCLUDED.binding_version,open_id=EXCLUDED.open_id`;
+  const fact=(version,enabled)=>`INSERT INTO content_intake.principal_facts VALUES('brand-agent',${version},ARRAY['dept'],'agent-job',${enabled},timestamptz '${CHECKED}',timestamptz '${UNTIL}',${quote(HASH)}); UPDATE content_intake.principals SET current_facts_version=${version},revocation_generation=revocation_generation+${enabled?0:1} WHERE principal_id='brand-agent'`;
+  const observation=(version,kind='observation')=>`INSERT INTO intake_organization.observations VALUES('brand-agent',${version},'tenant-a','app-a',1,${quote(HASH)},${quote(kind)},${kind==='observation'?"'feishu-contact-job-title-v1',"+quote(HASH)+',clock_timestamp()':'NULL,NULL,NULL'})`;
+  org(binding(1,true));
+  assert.throws(()=>org(binding(2,true,'other-open')),/ORGANIZATION_BINDING_CONFLICT/);
+  assert.throws(()=>org(fact(2,true)),/ORGANIZATION_PROVENANCE_REQUIRED/);
+  assert.throws(()=>org(fact(2,true)+'; RESET ROLE'),/permission denied|ORGANIZATION_PROVENANCE_REQUIRED/);
+  checks+=1;
+  assert.equal(sql("SELECT current_facts_version FROM content_intake.principals WHERE principal_id='brand-agent'"),'1');
+  org(fact(2,true)+';'+observation(2));
+  assert.equal(sql("SELECT facts_version FROM intake_organization.observations WHERE principal_id='brand-agent'"),'2');
+  assert.throws(()=>org("UPDATE intake_organization.bindings SET open_id='forged'"),/permission denied/);
+  assert.throws(()=>asPurpose('usage',"INSERT INTO intake_organization.bindings VALUES('tenant-a','app-a','agent',1,'"+HASH+"','forged',true,clock_timestamp()+interval '1 minute')"),/permission denied/);
+  assert.throws(()=>org("INSERT INTO content_intake.principals VALUES('forged','forged','tenant-a','app-a','confirmed-synthetic','person-forged',1,0)"),/permission denied/);
+  org(fact(3,false)+';'+binding(2,false)+';'+observation(3,'revocation'));
+  assert.equal(sql("SELECT enabled::text FROM intake_organization.bindings WHERE principal_id='brand-agent' AND binding_version=2"),'false');
+  org(binding(3,true,'synthetic-open-b'));
+  assert.equal(sql("SELECT open_id FROM intake_organization.current_bindings WHERE principal_id='brand-agent'"),'synthetic-open-b');
+  checks+=11;
+
   // No production role or credential is created. These LOGINs live only on
   // the disposable Unix-socket cluster; the function owner cannot log in.
   const candidateFunctions = ['valid_shop_display_name','shop_directory_steward_guard','shop_display_guard','shop_display_current_guard','shop_directory_revision_guard','upsert_shop_display','read_shop_directory','shop_directory_event_immutable','shop_directory_session_context','manage_shop_directory_steward','rotate_shop_directory_key','shop_directory_signing_key','prepare_shop_directory_read','prepare_shop_directory_write','finish_shop_directory_transaction'];

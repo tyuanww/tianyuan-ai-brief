@@ -331,10 +331,18 @@ export const INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS = Object.freeze({
   openapi: `${development}/openapi.v1.21.yaml`,
   database: `${development}/schema.v1.23.sql`,
   increment: `${development}/18-P2店铺目录合同候选.md`,
+  installation: `${development}/content-intake-runtime-candidate/installation.generated.json`,
 });
 export const INTAKE_SHOP_DIRECTORY_SOURCES = Object.freeze({
   openapi: `${development}/content-intake-shop-directory-candidate/openapi.delta.json`,
   storage: `${development}/content-intake-shop-directory-candidate/storage.delta.sql`,
+});
+export const INTAKE_RUNTIME_SOURCES = Object.freeze({
+  roles: `${development}/content-intake-runtime-candidate/roles.sql`,
+  organization: `${development}/content-intake-runtime-candidate/organization.sql`,
+  session: `${development}/content-intake-runtime-candidate/session-lock.sql`,
+  acl: `${development}/content-intake-runtime-candidate/purpose-acl.sql`,
+  directoryAcl: `${development}/content-intake-runtime-candidate/directory-acl.sql`,
 });
 export function buildIntakeShopDirectoryContractFiles(readSource) {
   const base = buildIntakeDirectContractFiles(readSource);
@@ -382,16 +390,53 @@ export function buildIntakeShopDirectoryContractFiles(readSource) {
   if (/CREATE OR REPLACE FUNCTION content_intake\.authorization_deadline/.test(storage.toString())) {
     throw new Error('Shop directory must not replace authorization_deadline');
   }
-  return {
-    openapi: Buffer.from(openapi),
-    database: Buffer.concat([
-      Buffer.from('-- schema.v1.23 — DRAFT shop directory; frozen schema.v1.22 bytes follow unchanged\n'),
-      base.database,
-      Buffer.from(`\n-- BEGIN INTAKE SHOP DIRECTORY ${digest(storage)}\n`),
-      storage,
-      Buffer.from('-- END INTAKE SHOP DIRECTORY\n'),
-    ]),
-  };
+  const runtime = Object.fromEntries(Object.entries(INTAKE_RUNTIME_SOURCES).map(([key, source]) => [key, readSource(source)]));
+  for (const bytes of Object.values(runtime)) {
+    if (/intake_runtime_probe|intake_org_candidate|CREATE(?: OR REPLACE)? FUNCTION content_intake\.(?:authorization_deadline|publish_candidate|preview_rollback|execute_rollback)/i.test(bytes.toString())) {
+      throw new Error('Runtime candidate must use formal names and preserve frozen business function bodies');
+    }
+  }
+  const capabilities = ['intake_runtime_fn_owner','intake_usage','intake_business','intake_worker','intake_org_writer','intake_directory_fn_owner','intake_directory_key_operator'];
+  const expectedRoles = capabilities.map(role => `CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION;`).join(' ');
+  if (runtime.roles.toString().replace(/^--.*$/gm,'').replace(/\s+/g,' ').trim() !== expectedRoles) {
+    throw new Error('Runtime role bootstrap must contain only the exact NOLOGIN capabilities without credentials or memberships');
+  }
+  const block = (name, bytes) => [Buffer.from(`\n-- BEGIN INTAKE RUNTIME ${name} ${digest(bytes)}\n`), bytes, Buffer.from(`-- END INTAKE RUNTIME ${name}\n`)];
+  openapi += 'x-content-intake-runtime-development: ' + JSON.stringify({status:'DRAFT', runtime_activated:false,
+    sqlContract:'schema.v1.23', mappingVersion:'feishu-contact-job-title-v1', purposeRolesLogin:false,
+    sourceCommit:'cff9fa9b611a5f77de465b3a5ee1022c64027d9c', exportApproved:false}) + '\n';
+  const database = Buffer.concat([
+    Buffer.from('-- schema.v1.23 — DRAFT runtime integration; frozen schema.v1.22 bytes follow unchanged\n'), base.database,
+    ...block('ROLES',runtime.roles),...block('ORGANIZATION',runtime.organization),...block('SESSION',runtime.session),
+    Buffer.from(`\n-- BEGIN INTAKE SHOP DIRECTORY ${digest(storage)}\n`),storage,Buffer.from('-- END INTAKE SHOP DIRECTORY\n'),
+    ...block('DIRECTORY ACL',runtime.directoryAcl),
+  ]);
+  const provenancePath = `${development}/content-intake-runtime-candidate/provenance.json`;
+  const protocolPath = `${development}/content-intake-runtime-candidate/protocol.json`;
+  const provenanceBytes = readSource(provenancePath);
+  const protocolBytes = readSource(protocolPath);
+  const provenance = JSON.parse(provenanceBytes);
+  const protocol = JSON.parse(protocolBytes);
+  if (provenance.status !== 'DRAFT' || provenance.sourceCommit !== 'cff9fa9b611a5f77de465b3a5ee1022c64027d9c'
+    || protocol.status !== 'DRAFT' || protocol.organizationMappingVersion !== 'feishu-contact-job-title-v1') {
+    throw new Error('Runtime candidate provenance/protocol mismatch');
+  }
+  const sources = Object.fromEntries(Object.entries(runtime).map(([key,bytes])=>[key,{path:INTAKE_RUNTIME_SOURCES[key],sha256:digest(bytes)}]));
+  sources.directory={path:INTAKE_SHOP_DIRECTORY_SOURCES.storage,sha256:digest(storage)};
+  sources.provenance={path:provenancePath,sha256:digest(provenanceBytes)};
+  sources.protocol={path:protocolPath,sha256:digest(protocolBytes)};
+  const installation={schema:'content-intake-installation/v1',status:'DRAFT',exportApproved:false,sqlContract:'schema.v1.23',
+    openapi:{path:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.openapi,sha256:digest(Buffer.from(openapi))},
+    database:{path:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.database,sha256:digest(database)},sources,
+    referenceMode:{artifact:'database',includes:['roles','organization','session','directory','directoryAcl'],runtimeReady:false},
+    productMode:{implementation:provenance.implementationDependencies,
+      order:['product-migrations','roles','organization','session','directory','directoryAcl','acl','environment-login-bindings'],
+      atomicCandidateInstall:true,skipMissingDependencies:false},
+    requiredBundleArtifacts:['openapi','database','installation',...Object.keys(sources)],
+    capabilityLogin:false,environmentCredentialsIncluded:false,companionAclRequired:true,
+    exporterCondition:'A versioned profile must include and verify ALL requiredBundleArtifacts, exact approval hashes and product implementation dependency hashes; the old two-file exporter cannot release this candidate.'};
+  return {openapi:Buffer.from(openapi),database,installation:Buffer.from(JSON.stringify(installation,null,2)+'\n')};
+
 }
 const PUBLISH_OWNER_ONLY = `      operationId: publishContent
       summary: 将 staged 批次发布为新的 current release

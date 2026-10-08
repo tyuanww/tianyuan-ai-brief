@@ -12,6 +12,7 @@ import {
   INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS,
   INTAKE_SHOP_DIRECTORY_REASONS,
   INTAKE_SHOP_DIRECTORY_SOURCES,
+  INTAKE_RUNTIME_SOURCES,
 } from '../../business-docs/08-工具/build_customer_agent_backend_contract.mjs';
 
 const read = file => readFileSync(new URL('../../' + file, import.meta.url));
@@ -65,7 +66,8 @@ test('draft bytes reproduce the frozen predecessor without exporting or replacin
   assert.equal(/CREATE OR REPLACE FUNCTION content_intake\.authorization_deadline/.test(storage), false);
   assert.equal(storage.includes('CREATE TEMP TABLE') || storage.includes('pg_temp'), false);
   const exported = read('business-docs/08-工具/export_customer_agent_contract_set.mjs').toString('utf8');
-  assert.equal(exported.includes('shop-directory') || exported.includes('openapi.v1.21') || exported.includes('schema.v1.23'), false);
+  assert.equal(exported.includes('content-intake-runtime-v1'),true);
+  assert.equal(JSON.parse(read('business-docs/01-客服Agent项目/30-开发-进行中/contract-profile.v1.json')).profile,'content-intake-direct-v1');
   assert.equal(exported.includes('content-intake-direct-v1'), true);
   for (const step of ['test:intake-shop-directory-contract', 'check:intake-shop-directory-contract', 'lint:intake-shop-directory-openapi']) {
     assert.equal(releaseSteps.includes(step), true);
@@ -162,4 +164,34 @@ test('consumer releases only post-COMMIT values and keeps uncertain or malformed
     assert.deepEqual(await createShopDirectoryConsumer(async()=>output).read(request),{ok:false,reason:'COMMIT_UNKNOWN',commit:'unknown'});
   }
   assert.deepEqual(await createShopDirectoryConsumer(async()=> '__SHOP_DIRECTORY_COMMITTING__\n{"items":[]}\n').read(request),{ok:true,value:{items:[]}});
+});
+
+
+test('runtime installation binds companion ACL and formal NOLOGIN boundaries without duplicating product functions', () => {
+  assert.ok(generated.installation.equals(read(INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.installation)));
+  const install = JSON.parse(generated.installation);
+  assert.equal(install.status,'DRAFT');
+  assert.equal(install.exportApproved,false);
+  assert.equal(install.companionAclRequired,true);
+  assert.equal(install.productMode.skipMissingDependencies,false);
+  assert.equal(install.productMode.atomicCandidateInstall,true);
+  assert.equal(install.capabilityLogin,false);
+  assert.equal(install.environmentCredentialsIncluded,false);
+  assert.equal(install.openapi.sha256,digest(generated.openapi));
+  assert.equal(install.database.sha256,digest(generated.database));
+  for (const input of Object.values(install.sources)) assert.equal(input.sha256,digest(read(input.path)));
+  assert.deepEqual(install.productMode.order,['product-migrations','roles','organization','session','directory','directoryAcl','acl','environment-login-bindings']);
+  assert.ok(install.requiredBundleArtifacts.includes('acl'));
+  assert.ok(install.requiredBundleArtifacts.includes('installation'));
+  const core=generated.database.toString();
+  assert.equal(/intake_runtime_probe|intake_org_candidate/.test(core),false);
+  assert.equal(core.includes('INTAKE_RUNTIME_IMPLEMENTATION_REQUIRED'),false);
+  const acl=read(INTAKE_RUNTIME_SOURCES.acl).toString();
+  assert.ok(acl.includes('INTAKE_RUNTIME_IMPLEMENTATION_REQUIRED'));
+  assert.ok(acl.includes('ALTER FUNCTION content_intake.publish_candidate'));
+  assert.equal(/CREATE(?: OR REPLACE)? FUNCTION content_intake\.(?:publish_candidate|preview_rollback|execute_rollback)/.test(acl),false);
+  for (const [source,from,to] of [
+    [INTAKE_RUNTIME_SOURCES.roles,'NOLOGIN','LOGIN'],
+    [INTAKE_RUNTIME_SOURCES.session,'intake_runtime','intake_runtime_probe'],
+  ]) assert.throws(()=>buildIntakeShopDirectoryContractFiles(file=>file===source?Buffer.from(read(file).toString().replaceAll(from,to)):read(file)),/Runtime/);
 });

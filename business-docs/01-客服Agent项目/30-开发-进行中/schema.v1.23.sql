@@ -1,4 +1,4 @@
--- schema.v1.23 — DRAFT shop directory; frozen schema.v1.22 bytes follow unchanged
+-- schema.v1.23 — DRAFT runtime integration; frozen schema.v1.22 bytes follow unchanged
 -- schema.v1.22 — DRAFT confirmed direct publication
 -- schema.v1.21 — DRAFT usage-context additive storage contract
 -- schema.v1.20 — content-intake additive storage contract candidate
@@ -12898,6 +12898,205 @@ CREATE OR REPLACE FUNCTION content_intake.authorization_deadline(
 $$;
 -- END INTAKE DIRECT
 
+-- BEGIN INTAKE RUNTIME ROLES 54a7a75d8b58f0217cdbc782b450ffc0f256633cb050a509fb930274e17fb9ee
+-- DRAFT capability bootstrap. No environment LOGIN, password, role membership or database CONNECT.
+-- Installer is the governance migration owner; existing same-name roles fail closed.
+CREATE ROLE intake_runtime_fn_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION;
+CREATE ROLE intake_usage NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION;
+CREATE ROLE intake_business NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION;
+CREATE ROLE intake_worker NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION;
+CREATE ROLE intake_org_writer NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION;
+CREATE ROLE intake_directory_fn_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION;
+CREATE ROLE intake_directory_key_operator NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION;
+-- END INTAKE RUNTIME ROLES
+
+-- BEGIN INTAKE RUNTIME ORGANIZATION 656113a5b12a5f6438df467e1afe5858b26c60062568cec4c4535069a283ca14
+-- DRAFT registered organization input. Trusted service owns canonical request digests and facts CAS.
+CREATE SCHEMA intake_organization;
+REVOKE ALL ON SCHEMA intake_organization FROM PUBLIC;
+CREATE TABLE intake_organization.bindings (
+  tenant_id content_intake.identifier NOT NULL, app_id content_intake.identifier NOT NULL, principal_id content_intake.identifier NOT NULL,
+  binding_version content_intake.version NOT NULL, binding_digest content_intake.sha256 NOT NULL,
+  open_id content_intake.identifier NOT NULL, enabled boolean NOT NULL, valid_until timestamptz NOT NULL CHECK(isfinite(valid_until)),
+  PRIMARY KEY(tenant_id,app_id,principal_id,binding_version),
+  FOREIGN KEY(principal_id,tenant_id,app_id) REFERENCES content_intake.principals(principal_id,tenant_id,app_id),
+  UNIQUE(tenant_id,app_id,principal_id,binding_version,open_id)
+);
+CREATE TABLE intake_organization.current_bindings (
+  tenant_id content_intake.identifier NOT NULL, app_id content_intake.identifier NOT NULL, principal_id content_intake.identifier NOT NULL,
+  binding_version content_intake.version NOT NULL, open_id content_intake.identifier NOT NULL,
+  PRIMARY KEY(tenant_id,app_id,principal_id),
+  UNIQUE(tenant_id,app_id,open_id),
+  FOREIGN KEY(tenant_id,app_id,principal_id,binding_version,open_id)
+    REFERENCES intake_organization.bindings(tenant_id,app_id,principal_id,binding_version,open_id)
+);
+CREATE TABLE intake_organization.observations (
+  principal_id content_intake.identifier NOT NULL, facts_version content_intake.version NOT NULL,
+  tenant_id content_intake.identifier NOT NULL, app_id content_intake.identifier NOT NULL, binding_version content_intake.version NOT NULL,
+  request_digest content_intake.sha256 NOT NULL,
+  kind text NOT NULL CHECK(kind IN ('observation','revocation')),
+  mapping_version text, directory_digest content_intake.sha256, observed_until timestamptz CHECK(isfinite(observed_until)),
+  PRIMARY KEY(principal_id,facts_version),
+  FOREIGN KEY(principal_id,facts_version) REFERENCES content_intake.principal_facts,
+  FOREIGN KEY(tenant_id,app_id,principal_id,binding_version) REFERENCES intake_organization.bindings,
+  CHECK ((kind='observation' AND mapping_version IS NOT NULL AND mapping_version='feishu-contact-job-title-v1'
+    AND directory_digest IS NOT NULL AND directory_digest ~ '^[0-9a-f]{64}$' AND observed_until IS NOT NULL)
+    OR (kind='revocation' AND mapping_version IS NULL AND directory_digest IS NULL AND observed_until IS NULL))
+);
+
+-- The service owns observation mapping/digests, while SQL keeps append-only
+-- history and current binding CAS. It never creates a principal or a grant.
+CREATE FUNCTION intake_organization.history_immutable() RETURNS TRIGGER
+LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+BEGIN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='ORGANIZATION_HISTORY_IMMUTABLE'; END;
+$$;
+CREATE TRIGGER organization_binding_immutable BEFORE UPDATE OR DELETE ON intake_organization.bindings
+ FOR EACH ROW EXECUTE FUNCTION intake_organization.history_immutable();
+CREATE TRIGGER organization_observation_immutable BEFORE UPDATE OR DELETE ON intake_organization.observations
+ FOR EACH ROW EXECUTE FUNCTION intake_organization.history_immutable();
+CREATE FUNCTION intake_organization.binding_transition() RETURNS TRIGGER
+LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+DECLARE prior intake_organization.bindings;
+BEGIN
+  PERFORM backend_review.lock_content();
+  SELECT b.* INTO prior FROM intake_organization.current_bindings c JOIN intake_organization.bindings b
+   USING(tenant_id,app_id,principal_id,binding_version)
+   WHERE c.tenant_id=NEW.tenant_id AND c.app_id=NEW.app_id AND c.principal_id=NEW.principal_id;
+  IF NEW.binding_version<>coalesce(prior.binding_version,0)+1
+    OR (coalesce(prior.enabled,false) AND (NEW.enabled OR NEW.open_id<>prior.open_id OR NEW.valid_until<>prior.valid_until))
+    OR (NOT coalesce(prior.enabled,false) AND (NOT NEW.enabled OR NEW.valid_until<=clock_timestamp())) THEN
+    RAISE EXCEPTION USING ERRCODE='ZA003',MESSAGE='ORGANIZATION_BINDING_CONFLICT';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER organization_binding_transition BEFORE INSERT ON intake_organization.bindings
+ FOR EACH ROW EXECUTE FUNCTION intake_organization.binding_transition();
+CREATE FUNCTION intake_organization.current_binding_guard() RETURNS TRIGGER
+LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+BEGIN
+  IF TG_OP='DELETE' OR (TG_OP='UPDATE' AND
+    ((NEW.tenant_id,NEW.app_id,NEW.principal_id) IS DISTINCT FROM (OLD.tenant_id,OLD.app_id,OLD.principal_id)
+      OR NEW.binding_version<>OLD.binding_version+1)) OR (TG_OP='INSERT' AND NEW.binding_version<>1 AND NOT EXISTS(
+      SELECT 1 FROM intake_organization.current_bindings prior WHERE prior.tenant_id=NEW.tenant_id AND prior.app_id=NEW.app_id
+        AND prior.principal_id=NEW.principal_id AND prior.binding_version+1=NEW.binding_version)) THEN
+    RAISE EXCEPTION USING ERRCODE='ZA003',MESSAGE='ORGANIZATION_BINDING_CONFLICT';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER organization_current_guard BEFORE INSERT OR UPDATE OR DELETE ON intake_organization.current_bindings
+ FOR EACH ROW EXECUTE FUNCTION intake_organization.current_binding_guard();
+CREATE FUNCTION intake_organization.observation_guard() RETURNS TRIGGER
+LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+DECLARE b intake_organization.bindings; c intake_organization.bindings; f content_intake.principal_facts;
+BEGIN
+  SELECT * INTO b FROM intake_organization.bindings WHERE tenant_id=NEW.tenant_id AND app_id=NEW.app_id
+    AND principal_id=NEW.principal_id AND binding_version=NEW.binding_version;
+  SELECT history.* INTO c FROM intake_organization.current_bindings ptr JOIN intake_organization.bindings history
+    USING(tenant_id,app_id,principal_id,binding_version)
+    WHERE ptr.tenant_id=NEW.tenant_id AND ptr.app_id=NEW.app_id AND ptr.principal_id=NEW.principal_id;
+  SELECT * INTO f FROM content_intake.principal_facts WHERE principal_id=NEW.principal_id AND facts_version=NEW.facts_version;
+  IF b.principal_id IS NULL OR c.principal_id IS NULL OR f.principal_id IS NULL OR NOT b.enabled
+    OR (NEW.kind='observation' AND (NOT c.enabled OR c.binding_version<>b.binding_version
+      OR f.valid_until>b.valid_until OR NEW.observed_until<f.checked_at OR NEW.observed_until>=f.valid_until
+      OR NEW.observed_until>clock_timestamp() OR clock_timestamp()>=f.valid_until))
+    OR (NEW.kind='revocation' AND (c.enabled OR c.binding_version<>b.binding_version+1 OR c.open_id<>b.open_id OR f.enabled)) THEN
+    RAISE EXCEPTION USING ERRCODE='ZA003',MESSAGE='ORGANIZATION_PROVENANCE_CONFLICT';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER organization_observation_guard BEFORE INSERT ON intake_organization.observations
+ FOR EACH ROW EXECUTE FUNCTION intake_organization.observation_guard();
+-- Registered writer facts require evidence in the SAME transaction. Bootstrap
+-- fixtures remain separately privileged and do not masquerade as observations.
+-- WHEN is captured when the row is inserted, not when deferred triggers run: a
+-- later RESET ROLE cannot erase the evidence obligation.
+CREATE FUNCTION intake_organization.fact_evidence_required() RETURNS TRIGGER
+LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM intake_organization.observations
+    WHERE principal_id=NEW.principal_id AND facts_version=NEW.facts_version) THEN
+    RAISE EXCEPTION USING ERRCODE='ZA003',MESSAGE='ORGANIZATION_PROVENANCE_REQUIRED';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+CREATE CONSTRAINT TRIGGER organization_fact_evidence AFTER INSERT ON content_intake.principal_facts
+ DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (current_user='intake_org_writer')
+ EXECUTE FUNCTION intake_organization.fact_evidence_required();
+REVOKE ALL ON ALL TABLES IN SCHEMA intake_organization FROM PUBLIC;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA intake_organization FROM PUBLIC;
+-- END INTAKE RUNTIME ORGANIZATION
+
+-- BEGIN INTAKE RUNTIME SESSION 4447e3d2a4477cd66aea754d2eb970d6e92f328c61192bb26edfc054d1768ac6
+-- DRAFT trusted transaction boundary. Global content lock must precede this call.
+CREATE SCHEMA intake_runtime;
+REVOKE ALL ON SCHEMA intake_runtime FROM PUBLIC;
+
+-- The caller supplies the authenticated module's private session hash and user,
+-- never renderer data. No identity rows, token hashes or mutable capabilities are
+-- returned. Locks remain held until the caller's transaction ends, serializing
+-- session revocation and subject disable with its business transaction.
+CREATE FUNCTION intake_runtime.lock_product_session(p_hash TEXT, p_user TEXT)
+RETURNS TIMESTAMPTZ
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
+DECLARE deadline TIMESTAMPTZ;
+BEGIN
+  IF p_hash IS NULL OR p_hash !~ '^[0-9a-f]{64}$'
+    OR p_user IS NULL OR length(p_user) NOT BETWEEN 1 AND 128 THEN
+    RAISE EXCEPTION USING ERRCODE='ZA003', MESSAGE='SESSION_UNAVAILABLE';
+  END IF;
+  SELECT s.expires_at INTO deadline
+    FROM backend_identity.sessions s
+    JOIN backend_identity.subject_bindings b USING(binding_id)
+    WHERE s.token_hash=p_hash AND b.user_id=p_user AND b.enabled
+      AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()
+    FOR SHARE OF s,b;
+  -- Time can pass while waiting for a row lock. Do not return a stale deadline.
+  IF deadline IS NULL OR deadline<=clock_timestamp() THEN
+    RAISE EXCEPTION USING ERRCODE='ZA003', MESSAGE='SESSION_UNAVAILABLE';
+  END IF;
+  RETURN deadline;
+END
+$$;
+REVOKE ALL ON FUNCTION intake_runtime.lock_product_session(TEXT,TEXT) FROM PUBLIC;
+
+-- Startup/checkout guard for a dedicated environment LOGIN after SET ROLE.
+-- session_user is the connection identity; current_user is exactly one NOLOGIN
+-- capability. This is not an authenticated end-user or a complete ACL auditor.
+CREATE FUNCTION intake_runtime.assert_purpose(p_purpose TEXT) RETURNS VOID
+LANGUAGE plpgsql STABLE SET search_path=pg_catalog AS $$
+DECLARE expected TEXT; login_record RECORD; capability_record RECORD;
+BEGIN
+  expected:=CASE p_purpose WHEN 'usage' THEN 'intake_usage' WHEN 'business' THEN 'intake_business'
+    WHEN 'worker' THEN 'intake_worker' WHEN 'organization' THEN 'intake_org_writer'
+    WHEN 'directory-key' THEN 'intake_directory_key_operator' ELSE NULL END;
+  SELECT * INTO login_record FROM pg_roles WHERE rolname=session_user;
+  SELECT * INTO capability_record FROM pg_roles WHERE rolname=expected;
+  IF expected IS NULL OR current_user<>expected OR session_user=current_user
+    OR NOT login_record.rolcanlogin OR login_record.rolinherit OR login_record.rolsuper OR login_record.rolcreatedb
+    OR login_record.rolcreaterole OR login_record.rolbypassrls OR login_record.rolreplication
+    OR capability_record.rolcanlogin OR capability_record.rolinherit OR capability_record.rolsuper
+    OR capability_record.rolcreatedb OR capability_record.rolcreaterole OR capability_record.rolbypassrls OR capability_record.rolreplication
+    OR NOT pg_has_role(session_user,expected,'MEMBER')
+    OR EXISTS(SELECT 1 FROM pg_auth_members m WHERE m.member=login_record.oid
+      AND (m.roleid<>capability_record.oid OR m.admin_option))
+    OR EXISTS(SELECT 1 FROM pg_auth_members WHERE member=capability_record.oid)
+    OR pg_has_role(session_user,'intake_runtime_fn_owner','MEMBER')
+    OR pg_has_role(session_user,'intake_directory_fn_owner','MEMBER') THEN
+    RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='INTAKE_RUNTIME_ROLE_BOUNDARY';
+  END IF;
+END;
+$$;
+REVOKE ALL ON FUNCTION intake_runtime.assert_purpose(TEXT) FROM PUBLIC;
+GRANT USAGE ON SCHEMA intake_runtime TO intake_usage,intake_business,intake_worker,intake_org_writer,intake_directory_key_operator;
+GRANT EXECUTE ON FUNCTION intake_runtime.assert_purpose(TEXT) TO intake_usage,intake_business,intake_worker,intake_org_writer,intake_directory_key_operator;
+-- END INTAKE RUNTIME SESSION
+
 -- BEGIN INTAKE SHOP DIRECTORY 73254ecac5144e7416e87177e1443944579cbc82ec93ed89273e98e4d1d5d9fc
 -- Shop display directory. Names are not columns on sources and are not read from
 -- Feishu contact fields. A registered steward row is the only writer. Absence of
@@ -13666,3 +13865,60 @@ REVOKE ALL ON FUNCTION content_intake.finish_shop_directory_transaction(JSONB) F
 
 REVOKE ALL ON FUNCTION content_intake.shop_directory_signing_key(content_intake.shop_directory_keys) FROM PUBLIC;
 -- END INTAKE SHOP DIRECTORY
+
+-- BEGIN INTAKE RUNTIME DIRECTORY ACL 49b4555f80cfe8d7302c67d081cc49a915949b613acda564dcd408a6232c67fa
+-- Trusted registered organization service; append-only histories and pointer
+-- transitions remain guarded. No bindings/principals/role/grant creation in the
+-- identity or content authority domains is granted.
+GRANT USAGE ON SCHEMA intake_organization TO intake_org_writer;
+GRANT SELECT,INSERT ON intake_organization.bindings,intake_organization.current_bindings,intake_organization.observations TO intake_org_writer;
+GRANT UPDATE(binding_version,open_id) ON intake_organization.current_bindings TO intake_org_writer;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA intake_organization TO intake_org_writer;
+
+-- Directory owns only its own state and keys; it does not borrow publication
+-- table writes from intake_runtime_fn_owner. Public low-level EXECUTE stays off.
+GRANT USAGE ON SCHEMA content_intake,backend_identity,backend_review,public TO intake_directory_fn_owner;
+GRANT USAGE ON SCHEMA content_intake TO intake_directory_key_operator;
+GRANT SELECT ON backend_identity.sessions,backend_identity.subject_bindings,
+  content_intake.principals,content_intake.principal_facts,content_intake.role_rules,
+  content_intake.grants,content_intake.scopes,content_intake.sources TO intake_directory_fn_owner;
+GRANT UPDATE(token_hash) ON backend_identity.sessions TO intake_directory_fn_owner;
+GRANT UPDATE(user_id) ON backend_identity.subject_bindings TO intake_directory_fn_owner;
+GRANT UPDATE(principal_id) ON content_intake.principals,content_intake.principal_facts TO intake_directory_fn_owner;
+GRANT EXECUTE ON FUNCTION backend_review.lock_content(),public.digest(bytea,text),public.hmac(bytea,bytea,text),
+  content_intake.authorization_deadline(text,text,text,text,timestamptz) TO intake_directory_fn_owner;
+ALTER TABLE content_intake.shop_directory_stewards OWNER TO intake_directory_fn_owner;
+ALTER TABLE content_intake.shop_directory_revisions OWNER TO intake_directory_fn_owner;
+ALTER TABLE content_intake.shop_displays OWNER TO intake_directory_fn_owner;
+ALTER TABLE content_intake.shop_display_current OWNER TO intake_directory_fn_owner;
+ALTER TABLE content_intake.shop_directory_registrars OWNER TO intake_directory_fn_owner;
+ALTER TABLE content_intake.shop_directory_steward_events OWNER TO intake_directory_fn_owner;
+ALTER TABLE content_intake.shop_directory_keys OWNER TO intake_directory_fn_owner;
+ALTER TABLE content_intake.shop_directory_key_events OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.valid_shop_display_name(text) OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.shop_directory_steward_guard() OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.shop_display_guard() OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.shop_display_current_guard() OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.shop_directory_revision_guard() OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.upsert_shop_display(text,text,text,text,text,bigint) OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.read_shop_directory(text,text,timestamptz,text,integer,text,timestamptz) OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.shop_directory_event_immutable() OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.shop_directory_session_context(text) OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.manage_shop_directory_steward(text,text,bigint,bigint,timestamptz,text,text) OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.rotate_shop_directory_key(text,text,text,text,timestamptz,bigint,text,text) OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.shop_directory_signing_key(content_intake.shop_directory_keys) OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.prepare_shop_directory_read(text,text,integer) OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.prepare_shop_directory_write(text,text,text,bigint) OWNER TO intake_directory_fn_owner;
+ALTER FUNCTION content_intake.finish_shop_directory_transaction(jsonb) OWNER TO intake_directory_fn_owner;
+GRANT EXECUTE ON FUNCTION content_intake.prepare_shop_directory_read(text,text,integer),content_intake.finish_shop_directory_transaction(jsonb) TO intake_usage;
+GRANT EXECUTE ON FUNCTION content_intake.prepare_shop_directory_write(text,text,text,bigint),content_intake.manage_shop_directory_steward(text,text,bigint,bigint,timestamptz,text,text),content_intake.finish_shop_directory_transaction(jsonb) TO intake_business;
+GRANT EXECUTE ON FUNCTION content_intake.rotate_shop_directory_key(text,text,text,text,timestamptz,bigint,text,text) TO intake_directory_key_operator;
+-- Core directory consumers can run independently of product-only publication
+-- overlays. These minimum grants do not activate the business upload service.
+GRANT USAGE ON SCHEMA content_intake,backend_review TO intake_usage,intake_business,intake_org_writer;
+GRANT EXECUTE ON FUNCTION backend_review.lock_content() TO intake_usage,intake_business,intake_org_writer;
+GRANT SELECT ON content_intake.principals,content_intake.principal_facts TO intake_org_writer;
+GRANT INSERT ON content_intake.principal_facts TO intake_org_writer;
+GRANT UPDATE(current_facts_version,revocation_generation) ON content_intake.principals TO intake_org_writer;
+GRANT EXECUTE ON FUNCTION content_intake.principal_guard() TO intake_org_writer;
+-- END INTAKE RUNTIME DIRECTORY ACL

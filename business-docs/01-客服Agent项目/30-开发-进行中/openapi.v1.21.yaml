@@ -5008,3 +5008,4 @@ x-content-intake-management-development: {"status":"DRAFT","runtime_activated":f
 x-content-intake-direct-development: {"status":"DRAFT","runtime_activated":false,"sqlContract":"schema.v1.22","exportApproved":false,"transactionImplementationRequired":true}
 
 x-content-intake-shop-directory-development: {"status":"DRAFT","runtime_activated":false,"sqlContract":"schema.v1.23","exportApproved":false,"frozenOpenapi":"1.20.0","frozenSchema":"schema.v1.22","nameGrantsBusinessAction":false}
+x-content-intake-runtime-development: {"status":"DRAFT","runtime_activated":false,"sqlContract":"schema.v1.23","mappingVersion":"feishu-contact-job-title-v1","purposeRolesLogin":false,"sourceCommit":"cff9fa9b611a5f77de465b3a5ee1022c64027d9c","exportApproved":false}
