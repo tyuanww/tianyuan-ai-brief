@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import Ajv from 'ajv/dist/2020.js';
 import {createRequire} from 'node:module';
 import {buildCsvContractFiles,CSV_SOURCES,CSV_PATHS} from '../../business-docs/08-工具/build_customer_agent_csv_contract.mjs';
+import {assertIntakeCsvExportGate} from '../../business-docs/08-工具/export_customer_agent_contract_set.mjs';
 import {releaseSteps} from '../scripts/quality-plan.mjs';
 const read=file=>readFileSync(new URL('../../'+file,import.meta.url));
 const digest=b=>createHash('sha256').update(b).digest('hex');
@@ -17,7 +18,7 @@ ajv.addSchema({$id:'urn:synthetic:intake-csv',components:{schemas}});
 const validate=name=>ajv.compile({$ref:`urn:synthetic:intake-csv#/components/schemas/${name}`});
 const xlsx='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const source={operationId:'operation',expectedVersion:1,templateVersion:protocol.templateVersion,ruleVersion:protocol.ruleVersion,mappingVersion:protocol.mappingVersion,structureDigest:protocol.structureDigest};
-test('CSV candidate preserves frozen predecessor and is reproducible, unapproved and absent from exports',()=>{
+test('CSV frozen candidate preserves predecessor and machine bytes under the exact independent approval',()=>{
  for(const [key,bytes] of Object.entries(generated)) assert.ok(bytes.equals(read(CSV_PATHS[key])));
  const prefix='business-docs/01-客服Agent项目/30-开发-进行中/';
  for(const [file,hash] of Object.entries(protocol.frozenPredecessor)) assert.equal(digest(read(prefix+file)),hash);
@@ -26,7 +27,8 @@ test('CSV candidate preserves frozen predecessor and is reproducible, unapproved
  assert.equal(protocol.structureDigest,digest(JSON.stringify(protocol.headers)));
  assert.equal(protocol.freezeApproved||protocol.exportApproved||protocol.runtimeActivated,false);
  assert.equal(protocol.headers.length,23);
- assert.equal(JSON.parse(read(prefix+'contract-profile.v1.json')).profile,'content-intake-runtime-v1');
+ assert.doesNotThrow(()=>assertIntakeCsvExportGate(read,{openapiHash:digest(generated.openapi),databaseHash:digest(generated.database)}));
+ assert.equal(JSON.parse(read(prefix+'contract-profile.v1.json')).profile,'content-intake-csv-v1');
  for(const step of ['test:intake-csv-contract','check:intake-csv-contract','lint:intake-csv-openapi']) assert.ok(releaseSteps.includes(step));
  const before=schemaMap(read(prefix+'openapi.v1.21.yaml'));
  const changed=new Set(['IntakeObject','IntakeSourceWrite','IntakeSource','IntakeMaterialHeader','IntakeMaterial','IntakePolicy','IntakeFailure']);

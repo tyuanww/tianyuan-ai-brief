@@ -30,6 +30,7 @@ test('CSV candidate profile refuses DRAFT and only consumes a complete v3 bundle
   const options={repository:repo,expectedOpenapiSha256:hash(generated.openapi),expectedDatabaseSha256:hash(generated.database)};
   const load=()=>loadContractSetFromCommit({...options,sourceGitSha:commit()});
   write(OWNER_PROFILE_PATH,JSON.stringify({schema:'customer-agent-contract-profile/v1',profile:'content-intake-csv-v1'}));
+  write(CSV_PATHS.increment,frozen.replace('FROZEN','DRAFT'));
   assert.throws(load,/CSV 输入合同未冻结/);
   write(CSV_PATHS.increment,frozen);assert.throws(load,/git rev-parse 失败/);
   write(INTAKE_CSV_APPROVAL_PATH,approval.replace('APPROVED','DRAFT'));assert.throws(load,/缺 P2 CSV/);

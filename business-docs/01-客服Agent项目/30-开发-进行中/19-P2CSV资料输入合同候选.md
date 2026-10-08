@@ -1,6 +1,8 @@
 # P2 CSV 资料输入合同候选
 
-> 状态：DRAFT · NOT FROZEN · NOT EXPORTED · NOT INTAKE。2026-10-08。仅合成准备，不授权真实来源登记、运行激活、员工或客户资料读取。
+> 状态：FROZEN · NOT EXPORTED · NOT INTAKE · SYNTHETIC DEVELOPMENT ONLY
+
+2026-10-08 已获[精确冻结及完整合成交接批准](../90-评审/2026-10-08_P2CSV输入合同批准.md)，只允许合同交接和合成实施，不授权真实来源登记、运行激活、员工或客户资料读取。机器 DRAFT 元数据保留已批准原字节；本页 NOT EXPORTED／NOT INTAKE 描述冻结源提交时状态，后续实际动作以独立回执为准。
 
 首批资料的日常维护入口是飞书表格导出的 CSV。现有 P2 新上传链只接受标准 XLSX；本候选把原 CSV 作为第一类输入接入同一候选、质量检查、二次确认直发及查询复制链。产品历史内容管理的 CSV 能力不能代替新链合同，解析器实验通过也不代表 HTTP、桌面或安装包已支持 CSV。
 
@@ -47,9 +49,17 @@ FAQ 校验复用 XLSX 业务规则：稳定编号、必填标题／话术、启�
 
 正式冻结及产品 intake 之后，具体来源才能经已有有权管理接口 CAS 新增 CSV mapping 版本；不能 UPDATE 旧 mapping，也不默认迁移所有来源。受控 CSV 模板和新的记录头只能以该版本解析；旧候选、文件和审批证据按各自原版本保留。CSV 输入被格式门接受也不会产生 import、publish 或 query grant。
 
+**直接前序机器合同：** OpenAPI 1.21.0 SHA-256 `bde5124df711333e6860c0cea1734f47fe5c45c95b56c0d5cde3d2e9466246d7`；DDL schema.v1.23 SHA-256 `4c2969459265262fabfe38ae425ab8c1275c46274d03ae09ec39b75ae9cc978e`。
+
+**P2 CSV 机器合同增量：** OpenAPI 1.22.0 SHA-256 `3f741eb980aba1cd9a2a273b25771b50299e1aef3acbc6a1579b57541ed43a94`；DDL schema.v1.24 SHA-256 `c4ceffa961728423b755b00d551b9ab67fbf33ffe1dd87d8e671f6d151f744c5`。
+
+**实际产物必须精确匹配：** OpenAPI 1.22.0 SHA-256 `3f741eb980aba1cd9a2a273b25771b50299e1aef3acbc6a1579b57541ed43a94`；DDL schema.v1.24 SHA-256 `c4ceffa961728423b755b00d551b9ab67fbf33ffe1dd87d8e671f6d151f744c5`。
+
+**CSV 安装清单：** `e7bee22391c96c498d96e20e868cbf90429405ac3793eeb02bbc93e817939a28`。
+
 ## 冻结与接入条件
 
-候选的生成命令为 `node business-docs/08-工具/build_customer_agent_csv_contract.mjs --write`；校验用 `--check`。精确候选与输入／日志摘要见 [验证记录](content-intake-csv-candidate/verification.md)。冻结前要明确采用本文件的单文件表示、版本组合及预算，批准所列新 OpenAPI、schema、protocol 与 storage 字节；之后才新增独立批准记录、冻结规范锚点，并切换 profile 为 `content-intake-csv-v1`，再按完整来源 commit 执行版本化 export 与产品 intake。exporter 已具备未启用的 `content-intake-csv-v1` 候选 profile，当前 profile 仍为 runtime；DRAFT、缺独立批准／冻结锚点或安装清单批准哈希均拒绝导出。候选 bundle v3 必须包含全部 runtime 伴随物、新 CSV protocol/storage 及绑定新 schema 的安装清单。不能以旧 runtime profile 导出 CSV，也不能把旧安装清单的哈希当新 schema 的安装授权。
+候选的生成命令为 `node business-docs/08-工具/build_customer_agent_csv_contract.mjs --write`；校验用 `--check`。冻结前输入／日志摘要保留在[候选验证](content-intake-csv-candidate/verification.md)，本次冻结验证见[冻结记录](content-intake-csv-candidate/freeze-verification.md)。五项精确字节已获独立批准，规范冻结且 profile 已切换为 `content-intake-csv-v1`；后续按包含批准的完整来源 commit 执行版本化 export 与产品 intake。DRAFT、缺独立批准／冻结锚点或安装清单批准哈希仍拒绝导出。bundle v3 必须包含全部 runtime 伴随物、新 CSV protocol/storage 及绑定新 schema 的安装清单。不能以旧 runtime profile 导出 CSV，也不能把旧安装清单的哈希当新 schema 的安装授权。
 
 安装清单明确 `csvInputImplementationRequired=true`、`csvProductionConsumerReady=false`；合成导出验证只证明可消费的合同包，不代表产品 CSV 生产消费者已实现。
 

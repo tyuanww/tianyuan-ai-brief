@@ -1,0 +1,129 @@
+{
+  "status": "FROZEN_EXPORT_AUTHORIZED",
+  "approvedCandidateCommit": "5335107563510f54f656237b3d11bc375d179edb",
+  "inputs": {
+    "business-docs/01-客服Agent项目/30-开发-进行中/19-P2CSV资料输入合同候选.md": "000820a0c357ced88c44e2e95dd0c6fd7c5398009da9486139ee1e7b34347f16",
+    "business-docs/01-客服Agent项目/30-开发-进行中/README.md": "274c20dd9e1e6203a525e7294fff400fddb82ec11d12d58d3cb3a0828a744d9a",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/freeze-verification.md": "b0450becce38a6d508315da5bebeb58fee3d1a402a12527e1fd19c94849ed1e9",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/verification.md": "c06ebb169d3f04c3498c0063804c6a66c2e924cd3f3f093d74682f0e9dede066",
+    "business-docs/01-客服Agent项目/30-开发-进行中/contract-profile.v1.json": "04c134975fcc35815b684b87c61fc5c05af5ca9288172eb278939e3c3f362970",
+    "business-docs/01-客服Agent项目/90-评审/2026-10-08_P2CSV输入合同批准.md": "9c3f77080fb19ef7d721ac5807cf88860d7594334b0dc839ac9c84fca0d969ce",
+    "business-docs/08-工具/README.md": "99133f848823e11d2e50f2df89b58256b20c44a1be49967de371f4afff4926ad",
+    "sites/tests/content-intake-csv-contract.test.mjs": "59a9a27186b776ad3ae4026dbd0e6d98f5a10ab3ff2f1eb66ec69589267c6129",
+    "sites/tests/content-intake-csv-export.test.mjs": "e6d04eb301fb74b69b1ec95a29716c4eda32fe4a6a97f678c45289de46e913e1",
+    "sites/tests/content-intake-shop-directory-contract.test.mjs": "d21f9ceda22fcf5742d4c5387e1e1c2118ca6f881c1688735972be3e254fa5ac"
+  },
+  "reusedFrom": "checks.json",
+  "reusedUnchangedInputs": {
+    "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.22.yaml": "3f741eb980aba1cd9a2a273b25771b50299e1aef3acbc6a1579b57541ed43a94",
+    "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.24.sql": "c4ceffa961728423b755b00d551b9ab67fbf33ffe1dd87d8e671f6d151f744c5",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/installation.generated.json": "e7bee22391c96c498d96e20e868cbf90429405ac3793eeb02bbc93e817939a28",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/protocol.json": "ff83a005795f6a5bdd6597329d93c5fdc132267613886b701193bdf8583b62ca",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/storage.delta.sql": "f88db715af84ff0a4dc056ab3a37fdaf71cdd0ae439a78b2d565952a1b93b535",
+    "business-docs/08-工具/build_customer_agent_csv_contract.mjs": "b204758aa544741b55cb1f4afbea1945d46746439522067bca6002b0bed959d9",
+    "business-docs/08-工具/export_customer_agent_contract_set.mjs": "edfeb81602dfd2b20e934153aeeb1d1915895ef58741fd730128f7c921879a56",
+    "sites/tests/content-intake-csv-contract.pg.mjs": "60dbb24a3eed8c6110e8d5d5fa4eed28772c1b746e2945d2a3c043e8d9d833be",
+    "sites/package.json": "dc6d762deccd5c20a6818b2b4db62ea77992c29711c407fcd1664dd1e1fd0466",
+    "sites/package-lock.json": "57ec56e0c415b56694b64f339d30ea001d77b7b0e4142630fd49cb0ff14039e0",
+    "sites/scripts/quality-plan.mjs": "c4f37714d07d3e19228a40fb2f8fafee2171c2740ee7d45be9f5f18718b3c688",
+    "sites/tests/release-test-wiring.test.mjs": "f32a9f52953c13f4530d8d7d1deb2a1b5d2e22f75c4879c7783eaa35389e83f1"
+  },
+  "changedPriorInputs": {
+    "business-docs/01-客服Agent项目/30-开发-进行中/19-P2CSV资料输入合同候选.md": {
+      "previous": "d471f4b616b59732b1c573957a499a28637d4f4e4ceee0ea8055163a7be827e5",
+      "current": "000820a0c357ced88c44e2e95dd0c6fd7c5398009da9486139ee1e7b34347f16"
+    },
+    "business-docs/01-客服Agent项目/30-开发-进行中/README.md": {
+      "previous": "8d404590552a1d53511a84867b8d9a5e4f30d6559e27a407156648cd4d1a7391",
+      "current": "274c20dd9e1e6203a525e7294fff400fddb82ec11d12d58d3cb3a0828a744d9a"
+    },
+    "business-docs/08-工具/README.md": {
+      "previous": "5e8716ca6813e20be0526ee6dada831861eaa52f9c5973a19f73a5fc17a3018d",
+      "current": "99133f848823e11d2e50f2df89b58256b20c44a1be49967de371f4afff4926ad"
+    },
+    "sites/tests/content-intake-csv-contract.test.mjs": {
+      "previous": "62f4873be1ae47381597fce598f3fe7f054f3d829f5646ea93f1072648a96cf5",
+      "current": "59a9a27186b776ad3ae4026dbd0e6d98f5a10ab3ff2f1eb66ec69589267c6129"
+    },
+    "sites/tests/content-intake-csv-export.test.mjs": {
+      "previous": "99351f1a3d0940b6bcf12b7b4e2fdcb8007dc06d746a58b17c71379cc560b4ae",
+      "current": "e6d04eb301fb74b69b1ec95a29716c4eda32fe4a6a97f678c45289de46e913e1"
+    }
+  },
+  "validation": {
+    "csvContractAndExport": {
+      "command": "npm --prefix sites run test:intake-csv-contract",
+      "passed": 7,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "runtimeContractAndExport": {
+      "command": "npm --prefix sites run test:intake-shop-directory-contract",
+      "passed": 7,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "generatedContract": {
+      "command": "node business-docs/08-工具/build_customer_agent_csv_contract.mjs --check",
+      "exitCode": 0
+    },
+    "docs": {
+      "command": "npm --prefix sites run test:docs:fast",
+      "exitCode": 0
+    },
+    "exactApprovalGate": {
+      "command": "assertIntakeCsvExportGate(readFileSync, approvedHashes)",
+      "status": "PASS",
+      "includedIn": "csvContractAndExport"
+    },
+    "fullRelease": {
+      "mode": "reused unchanged steps plus affected checks",
+      "previousSteps": 44,
+      "newFullRun": false,
+      "previousLogSha256": "fd012facde0fe10890a7a708e1bc7abc93e72fa5c3f3c80901afc8eb907932e8",
+      "previousLogVerified": true
+    },
+    "pg15": {
+      "mode": "reused unchanged SQL/generator/PG test/environment",
+      "previousPassed": 35,
+      "newRun": false,
+      "previousLogSha256": "1e6cf8bcdbb5d01be3e569d6c04080f7bd91674d55c109663a6c1242731484d8",
+      "previousLogVerified": true
+    }
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "postgresql": "15.18",
+    "platform": "macOS arm64",
+    "dependencyInstall": false
+  },
+  "logs": {
+    "csv-test.log": {
+      "path": "output/content-intake-csv-freeze/csv-test.log",
+      "sha256": "9147da61b790d40a657f4d264f00a5b20ee4e76a4166ee90d3932c6a5212db40",
+      "bytes": 1003,
+      "exitCode": 0
+    },
+    "runtime-test.log": {
+      "path": "output/content-intake-csv-freeze/runtime-test.log",
+      "sha256": "e43e13c9668fea960ee1c6c978df679071378a0a240915334b38fe349932b5fe",
+      "bytes": 1142,
+      "exitCode": 0
+    },
+    "generated-check.log": {
+      "path": "output/content-intake-csv-freeze/generated-check.log",
+      "sha256": "e43225daa91f85ea6c6a6c13583b45b58f3de578ce9056335e1594d5c57a4261",
+      "bytes": 262,
+      "exitCode": 0
+    },
+    "docs.log": {
+      "path": "output/content-intake-csv-freeze/docs.log",
+      "sha256": "84b771f3d28dd9bab150a5ec699855efa1cc7244cfe8a544f9f955272114bf9b",
+      "bytes": 92,
+      "exitCode": 0
+    }
+  },
+  "runtimeActivated": false,
+  "fullReview": "INCOMPLETE"
+}

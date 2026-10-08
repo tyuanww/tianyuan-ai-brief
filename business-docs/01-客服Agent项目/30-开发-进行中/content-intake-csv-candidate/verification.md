@@ -1,5 +1,7 @@
 # CSV DRAFT 验证
 
+> 本文件保留治理候选 `5335107` 冻结前的验证时点；当前精确批准、冻结与后续导出回执见[冻结验证](freeze-verification.md)。
+
 状态：DRAFT · NOT FROZEN · NOT EXPORTED · NOT INTAKE。实际验证和输入摘要写入同目录 checks.json。当前只验证格式合同，不证明生产账号、真实资料、Main/HTTP/worker CSV 接入或安装包 CSV 闭环已完成。
 
 2026-10-08：Node 定向合同与合成导出 **7/7**、一次性 Unix socket PostgreSQL 15.18 存储检查 35/35 已通过；原始旧 XLSX 对象、作业和候选兼容，新 CSV 的来源／MIME／版本／mapping／结构及 material 绑定得到验证。PostgreSQL 使用合成元信息，不继承数据库 URL；临时 cluster 在 finally 清理。检查使用数据库 owner 验证 DDL 守卫，不充当用途 LOGIN、HTTP 或真实数据证据。

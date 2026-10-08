@@ -235,3 +235,7 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 ### P2 店铺目录候选
 
 [店铺目录规范](../01-客服Agent项目/30-开发-进行中/18-P2店铺目录合同候选.md)的 HTTP 保持只读显示名；当前合并 [运行接入候选](../01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/README.md)（OpenAPI 1.21.0 / schema.v1.23，已精确冻结，机器DRAFT元数据保留），组合组织输入、NOLOGIN用途与目录协议。生成/校验使用 `build_customer_agent_backend_contract.mjs --write-intake-shop-directory / --check-intake-shop-directory`；`npm --prefix sites run test:intake-shop-directory-contract` 验证 wire、旧字节和生成器拒绝，`test:intake-shop-directory-contract:pg` 用一次性 PG15 验证授权、分页和名称边界。check/lint 进入 machine/release；PG 脚本不进入 release。生成器同时维护 installation.generated.json，明确核心参考DDL与产品overlay后安装的伴随ACL、精确输入哈希和必需bundle工件。exporter 已实现显式 `content-intake-runtime-v1` → `customer-agent-contract-set/v2`，完整九件 runtime companion 与旧双件及 manifest 一起验证；旧 profile 保持 v1 兼容。实际 profile 已按精确批准切换 runtime；缺规范冻结/批准或工件漂移时仍拒绝导出。临时合成 Git 仓验证缺批准、漏件、错哈希/overlay 和可消费完整产物；不改 `authorization_deadline`，按批准从精确提交导出完整包，不接真实店铺名称。
+
+### P2 CSV 输入合同
+
+[CSV 规范](../01-客服Agent项目/30-开发-进行中/19-P2CSV资料输入合同候选.md)的 OpenAPI 1.22.0／schema.v1.24 及 protocol、storage、installation 五项精确字节已按[独立批准](../01-客服Agent项目/90-评审/2026-10-08_P2CSV输入合同批准.md)冻结。`build_customer_agent_csv_contract.mjs --check` 校验生成一致性；当前 profile 为 `content-intake-csv-v1`，exporter 从含本次批准的完整 Git 提交导出 v3 十四件包并验证全部 runtime 伴随物。机器 DRAFT 元数据保留，缺批准、哈希漂移、漏件或降级仍拒绝；产品接收和 CSV 合成闭环另行留证，不启用真实来源、账号或运行。
