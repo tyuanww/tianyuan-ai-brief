@@ -230,3 +230,7 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 ### P2 权限配置与确认直发候选
 
 [确认直发规范](../01-客服Agent项目/30-开发-进行中/17-P2权限配置与确认直发合同候选.md)承接权限配置免审批、资料二次确认后直发的本期决定；OpenAPI1.20.0/schema1.22 已按[独立批准](../01-客服Agent项目/90-评审/2026-10-08_P2确认直发合同批准.md)冻结精确版本对。生成/校验使用 `build_customer_agent_backend_contract.mjs --write-intake-direct / --check-intake-direct`；`npm --prefix sites run test:intake-direct-contract` 验证标准消费、确认字段和旧字节保护，`test:intake-direct-contract:pg` 用隔离PG15复用前序fixture并验证增量迁移、政策关联、不可变确认，以及四岗业务上限和 enabler/agent 历史非 query 授权不再放行。schema 哈希随 storage delta 变化，以规范页当前 SHA-256 为准。check/lint已进入machine/release；新增 content-intake-direct-v1 profile，精确提交导出门验证本次批准、双哈希、完整前序和派生一致性，拒绝批准后降级或删除批准/profile；实际产品接收与运行适配另行留证。机器注解保留批准原字节，不启用生产或真实数据。
+
+### P2 店铺目录候选
+
+[店铺目录规范](../01-客服Agent项目/30-开发-进行中/18-P2店铺目录合同候选.md)是未批准的只读显示名候选（OpenAPI 1.21.0 / schema.v1.23，DRAFT）。生成/校验使用 `build_customer_agent_backend_contract.mjs --write-intake-shop-directory / --check-intake-shop-directory`；`npm --prefix sites run test:intake-shop-directory-contract` 验证 wire、旧字节和生成器拒绝，`test:intake-shop-directory-contract:pg` 用一次性 PG15 验证授权、分页和名称边界。check/lint 进入 machine/release；PG 脚本不进入 release。不新增 export profile，不改 `authorization_deadline`，不冻结、不导出、不接真实店铺名称。

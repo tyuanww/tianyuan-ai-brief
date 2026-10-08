@@ -320,6 +320,79 @@ export function buildIntakeDirectContractFiles(readSource) {
   return {openapi:Buffer.from(openapi),database:Buffer.concat([Buffer.from('-- schema.v1.22 — DRAFT confirmed direct publication\n'),
     base.database,Buffer.from(`\n-- BEGIN INTAKE DIRECT ${digest(storage)}\n`),storage,Buffer.from('-- END INTAKE DIRECT\n')])};
 }
+
+/** Next free draft pair after frozen OpenAPI 1.20.0 / schema.v1.22.
+ * Not an export profile and not a product migration number. */
+export const INTAKE_SHOP_DIRECTORY_REASONS = Object.freeze([
+  'SHOP_DIRECTORY_CURSOR', 'SHOP_DIRECTORY_SESSION', 'SHOP_DISPLAY_MISSING',
+  'SHOP_DIRECTORY_CHANGED', 'SHOP_DIRECTORY_EXPIRED',
+]);
+export const INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.21.yaml`,
+  database: `${development}/schema.v1.23.sql`,
+  increment: `${development}/18-P2店铺目录合同候选.md`,
+});
+export const INTAKE_SHOP_DIRECTORY_SOURCES = Object.freeze({
+  openapi: `${development}/content-intake-shop-directory-candidate/openapi.delta.json`,
+  storage: `${development}/content-intake-shop-directory-candidate/storage.delta.sql`,
+});
+export function buildIntakeShopDirectoryContractFiles(readSource) {
+  const base = buildIntakeDirectContractFiles(readSource);
+  const raw = JSON.parse(readSource(INTAKE_SHOP_DIRECTORY_SOURCES.openapi));
+  if (JSON.stringify(raw.failureReasons) !== JSON.stringify(INTAKE_SHOP_DIRECTORY_REASONS)) {
+    throw new Error('Unexpected shop-directory reasons');
+  }
+  const delta = { paths: raw.paths, components: raw.components };
+  let openapi = base.openapi.toString('utf8');
+  const insert = (anchor, value) => {
+    if (openapi.split(anchor).length !== 2) throw new Error(`Non-unique shop-directory anchor: ${anchor}`);
+    openapi = openapi.replace(anchor, anchor + value);
+  };
+  if (openapi.split('  version: 1.20.0\n').length !== 2) throw new Error('Shop-directory predecessor must be 1.20.0');
+  openapi = openapi.replace('  version: 1.20.0\n', '  version: 1.21.0\n');
+  const routes = Object.keys(delta.paths);
+  if (routes.length !== 1 || routes[0] !== '/v1/intake/shop-directory') throw new Error('Unexpected shop-directory routes');
+  for (const [route, item] of Object.entries(delta.paths)) {
+    if (openapi.includes(`  ${JSON.stringify(route)}:`)) throw new Error(`Shop-directory route collision: ${route}`);
+    if (Object.keys(item).join() !== 'get') throw new Error('Unexpected shop-directory method');
+    insert('paths:\n', `  ${JSON.stringify(route)}: ${JSON.stringify({ get: { ...item.get, security: [{ ProductSession: [] }] } })}\n`);
+  }
+  const schemaNames = Object.keys(delta.components.schemas);
+  if (schemaNames.length !== 2 || schemaNames.sort().join() !== 'IntakeShopDirectory,IntakeShopDisplay') {
+    throw new Error('Unexpected shop-directory schemas');
+  }
+  for (const [name, schema] of Object.entries(delta.components.schemas)) {
+    if (openapi.includes(`    ${name}:`)) throw new Error(`Shop-directory schema collision: ${name}`);
+    insert('  schemas:\n', `    ${name}: ${JSON.stringify(schema)}\n`);
+  }
+  const failureLines = openapi.split('\n').filter(line => line.startsWith('    IntakeFailure: '));
+  if (failureLines.length !== 1) throw new Error('IntakeFailure anchor');
+  const failure = JSON.parse(failureLines[0].slice('    IntakeFailure: '.length));
+  const reasons = failure.properties.details.properties.reason.enum;
+  for (const reason of INTAKE_SHOP_DIRECTORY_REASONS) {
+    if (reasons.includes(reason)) throw new Error(`Shop-directory reason already present: ${reason}`);
+    reasons.push(reason);
+  }
+  openapi = openapi.replace(failureLines[0] + '\n', `    IntakeFailure: ${JSON.stringify(failure)}\n`);
+  openapi += '\nx-content-intake-shop-directory-development: ' + JSON.stringify({
+    status: 'DRAFT', runtime_activated: false, sqlContract: 'schema.v1.23', exportApproved: false,
+    frozenOpenapi: '1.20.0', frozenSchema: 'schema.v1.22', nameGrantsBusinessAction: false,
+  }) + '\n';
+  const storage = readSource(INTAKE_SHOP_DIRECTORY_SOURCES.storage);
+  if (/CREATE OR REPLACE FUNCTION content_intake\.authorization_deadline/.test(storage.toString())) {
+    throw new Error('Shop directory must not replace authorization_deadline');
+  }
+  return {
+    openapi: Buffer.from(openapi),
+    database: Buffer.concat([
+      Buffer.from('-- schema.v1.23 — DRAFT shop directory; frozen schema.v1.22 bytes follow unchanged\n'),
+      base.database,
+      Buffer.from(`\n-- BEGIN INTAKE SHOP DIRECTORY ${digest(storage)}\n`),
+      storage,
+      Buffer.from('-- END INTAKE SHOP DIRECTORY\n'),
+    ]),
+  };
+}
 const PUBLISH_OWNER_ONLY = `      operationId: publishContent
       summary: 将 staged 批次发布为新的 current release
       description: |
@@ -402,10 +475,11 @@ export function buildOpsLoopContractFiles(readSource) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish','--write-intake','--check-intake','--write-intake-usage','--check-intake-usage','--write-intake-quality','--check-intake-quality','--write-intake-management','--check-intake-management','--write-intake-direct','--check-intake-direct'];
+  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish','--write-intake','--check-intake','--write-intake-usage','--check-intake-usage','--write-intake-quality','--check-intake-quality','--write-intake-management','--check-intake-management','--write-intake-direct','--check-intake-direct','--write-intake-shop-directory','--check-intake-shop-directory'];
   if (args.length !== 1 || !allowed.includes(args[0])) throw new Error(`Use exactly one of: ${allowed.join(', ')}`);
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   const coachPublish = args[0].endsWith('-coach-publish');
+  const shopDirectory = args[0].endsWith('-intake-shop-directory');
   const intake = args[0].endsWith('-intake');
   const usage = args[0].endsWith('-intake-usage');
   const quality = args[0].endsWith('-intake-quality');
@@ -413,8 +487,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const management = args[0].endsWith('-intake-management');
   const opsLoop = args[0].endsWith('-ops-loop');
   const closure = args[0].endsWith('-closure');
-  const files = (direct ? buildIntakeDirectContractFiles : management ? buildIntakeManagementContractFiles : quality ? buildIntakeQualityContractFiles : usage ? buildIntakeUsageContractFiles : intake ? buildIntakeContractFiles : coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
-  const paths = direct ? INTAKE_DIRECT_CONTRACT_PATHS : management ? INTAKE_MANAGEMENT_CONTRACT_PATHS : quality ? INTAKE_QUALITY_CONTRACT_PATHS : usage ? INTAKE_USAGE_CONTRACT_PATHS : intake ? INTAKE_CONTRACT_PATHS : coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
+  const files = (shopDirectory ? buildIntakeShopDirectoryContractFiles : direct ? buildIntakeDirectContractFiles : management ? buildIntakeManagementContractFiles : quality ? buildIntakeQualityContractFiles : usage ? buildIntakeUsageContractFiles : intake ? buildIntakeContractFiles : coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
+  const paths = shopDirectory ? INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS : direct ? INTAKE_DIRECT_CONTRACT_PATHS : management ? INTAKE_MANAGEMENT_CONTRACT_PATHS : quality ? INTAKE_QUALITY_CONTRACT_PATHS : usage ? INTAKE_USAGE_CONTRACT_PATHS : intake ? INTAKE_CONTRACT_PATHS : coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
   for (const [key,bytes] of Object.entries(files)) {
     const target = path.join(root,paths[key]);
     if (args[0].startsWith('--write') && !((quality || management) && key === 'database')) writeFileSync(target,bytes);

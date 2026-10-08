@@ -71,6 +71,9 @@ test('every standalone test has a release route or explicit isolated PG route', 
       assert.ok(scripts['test:backend-candidate:pg'].includes(file));
     } else if (file === 'content-intake-contract.pg.mjs') {
       assert.ok(scripts['test:intake-contract:pg'].includes(file));
+    } else if (file === 'content-intake-shop-directory-contract.pg.mjs') {
+      assert.ok(scripts['test:intake-shop-directory-contract:pg'].includes(file));
+      assert.equal(direct.includes(file), false);
     } else assert.ok(direct.includes(file), `${file} has no release gate`);
   }
 });
