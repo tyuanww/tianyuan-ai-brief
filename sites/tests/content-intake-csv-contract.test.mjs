@@ -28,7 +28,6 @@ test('CSV frozen candidate preserves predecessor and machine bytes under the exa
  assert.equal(protocol.freezeApproved||protocol.exportApproved||protocol.runtimeActivated,false);
  assert.equal(protocol.headers.length,23);
  assert.doesNotThrow(()=>assertIntakeCsvExportGate(read,{openapiHash:digest(generated.openapi),databaseHash:digest(generated.database)}));
- assert.equal(JSON.parse(read(prefix+'contract-profile.v1.json')).profile,'content-intake-csv-v1');
  for(const step of ['test:intake-csv-contract','check:intake-csv-contract','lint:intake-csv-openapi']) assert.ok(releaseSteps.includes(step));
  const before=schemaMap(read(prefix+'openapi.v1.21.yaml'));
  const changed=new Set(['IntakeObject','IntakeSourceWrite','IntakeSource','IntakeMaterialHeader','IntakeMaterial','IntakePolicy','IntakeFailure']);

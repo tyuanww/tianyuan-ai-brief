@@ -1,6 +1,8 @@
-# 既有运行接入事项：旧内容校验 ACL 修复候选
+# 既有运行接入事项：旧内容校验 ACL 冻结前候选验证
 
 > DRAFT · NOT FROZEN · NOT EXPORTED · NOT INTAKE · SYNTHETIC ONLY
+
+本页保留候选提交 `231cba56aa81afca43f009f3990f7a25b67f4f0f` 的冻结前证据，以下 DRAFT、current 和未实现说明均对应该检查点。当前精确批准、完整交付接口和生命周期见[冻结规范](legacy-check-contract.md)及其独立批准；机器三个对象与原 PG17 项输入未变，不用后来状态改写过去的验证结果。
 
 2026-10-08，在 CSV 合成接线后的扩大回归中，既有非空目录发布在复制历史 `release_items` 时得到 `42501 / permission denied for function content_template_placeholders_are_valid`。原因属于既有运行 ACL：产品 `0033` 把发布及回退函数设为 `intake_runtime_fn_owner` 的 SECURITY DEFINER，但历史表 CHECK 调用的纯 INVOKER 校验闭包没有给这个新属主 EXECUTE。空目录发布不会触发该缺口。产品 `0032` 的逐字段历史复制和 CHECK 原义均正确，不能通过改成高权限属主、移除校验或向产品夹具偷偷补权掩盖失败。
 
@@ -34,7 +36,7 @@
 
 这八个新增授权函数在实库均是 IMMUTABLE、INVOKER。补丁前全部对新属主拒绝；应用后整个实库函数 ACL 差异恰好是这八项，角色属性、membership、所有 public 表 ACL 均无变化。各用途角色、`app_runtime` 和合成 LOGIN 仍没有这些新增 EXECUTE。
 
-## 安装语义和仍缺的接入工作
+## 候选提交时的安装语义和未完成项
 
 1. **完整参考 DDL**：schema1.25 已在全新隔离 PG15 实际安装。它包含 schema1.24 既有的 NOLOGIN 角色声明，所以能执行追加授权；它仍不含产品 publisher / rollback 正文和完整用途装配，`runtimeReady` 保持 false。不可把它当成生产启动脚本，也不可对已有产品库重放完整 DDL。
 2. **产品增量顺序**：先验证既有 schema1.24 对应迁移、完整 runtime 角色/ACL（含产品 `0033`）和 CSV 增量（`0034`），再在唯一迁移事务内追加本候选 SQL，最后才能执行既有启动核验。不能先给未核实的同名角色补权，也不能跳过失败的前序。

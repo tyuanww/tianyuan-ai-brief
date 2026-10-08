@@ -86,7 +86,7 @@
     "check:intake-csv-contract": "node ../business-docs/08-工具/build_customer_agent_csv_contract.mjs --check",
     "lint:intake-csv-openapi": "redocly lint ../business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.22.yaml",
     "test:intake-csv-contract:pg": "node tests/content-intake-csv-contract.pg.mjs",
-    "test:intake-runtime-closure-contract": "node --test tests/content-intake-runtime-closure.test.mjs",
+    "test:intake-runtime-closure-contract": "node --test tests/content-intake-runtime-closure.test.mjs tests/content-intake-runtime-closure-export.test.mjs",
     "check:intake-runtime-closure-contract": "node ../business-docs/08-工具/build_customer_agent_runtime_closure.mjs --check",
     "test:intake-runtime-closure-contract:pg": "node tests/content-intake-runtime-closure.pg.mjs"
   },

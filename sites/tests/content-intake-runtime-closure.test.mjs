@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { assertIntakeLegacyCheckExportGate } from '../../business-docs/08-工具/export_customer_agent_contract_set.mjs';
 import { buildRuntimeClosure, CLOSURE_PATHS } from '../../business-docs/08-工具/build_customer_agent_runtime_closure.mjs';
 
 const read = file => readFileSync(new URL('../../' + file, import.meta.url));
@@ -12,7 +13,7 @@ const generated = buildRuntimeClosure(read);
 const manifest = JSON.parse(generated.manifest);
 const delta = read(CLOSURE_PATHS.delta);
 
-test('DRAFT is reproducible, append-only and keeps frozen CSV current', () => {
+test('approved closure is reproducible and preserves raw DRAFT metadata and frozen predecessor', () => {
   for (const [name, bytes] of Object.entries(generated)) assert.ok(bytes.equals(read(CLOSURE_PATHS[name])));
   const predecessor = read(manifest.predecessor.path);
   const prefix = Buffer.from('-- schema.v1.25 — DRAFT legacy CHECK execution closure; immutable v1.24 follows\n');
@@ -20,12 +21,13 @@ test('DRAFT is reproducible, append-only and keeps frozen CSV current', () => {
   assert.equal(generated.database.subarray(prefix.length + predecessor.length).toString(),
     `\n-- BEGIN INTAKE LEGACY CHECK ACL ${sha(delta)}\n${delta}-- END INTAKE LEGACY CHECK ACL\n`);
   assert.equal(manifest.database.sha256, sha(generated.database));
+  assert.doesNotThrow(() => assertIntakeLegacyCheckExportGate(read, { databaseHash: sha(generated.database), openapiHash: manifest.openapi.sha256 }));
   assert.equal(manifest.status, 'DRAFT');
   for (const flag of ['freezeApproved', 'exportApproved', 'runtimeActivated', 'loginRoleGrants', 'tablePrivileges', 'membershipChanges', 'functionBodyChanges']) assert.equal(manifest[flag], false);
   assert.equal(manifest.referenceMode.runtimeReady, false);
   assert.equal(manifest.referenceMode.includesProductFunctionBodies, false);
   assert.equal(manifest.productOrder[0], 'verified-v1.24-product-migrations-and-complete-runtime-ACL');
-  assert.equal(JSON.parse(read(`${development}/contract-profile.v1.json`)).profile, 'content-intake-csv-v1');
+  assert.equal(JSON.parse(read(`${development}/contract-profile.v1.json`)).profile, 'content-intake-legacy-check-v1');
 });
 
 test('generator rejects any drift in the approved predecessor and every dependency', () => {

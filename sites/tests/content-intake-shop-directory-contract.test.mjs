@@ -67,7 +67,6 @@ test('approved bytes preserve draft metadata and frozen predecessor without repl
   assert.equal(storage.includes('CREATE TEMP TABLE') || storage.includes('pg_temp'), false);
   const exported = read('business-docs/08-工具/export_customer_agent_contract_set.mjs').toString('utf8');
   assert.equal(exported.includes('content-intake-runtime-v1'),true);
-  assert.equal(JSON.parse(read('business-docs/01-客服Agent项目/30-开发-进行中/contract-profile.v1.json')).profile,'content-intake-csv-v1');
   assert.equal(exported.includes('content-intake-direct-v1'), true);
   for (const step of ['test:intake-shop-directory-contract', 'check:intake-shop-directory-contract', 'lint:intake-shop-directory-openapi']) {
     assert.equal(releaseSteps.includes(step), true);

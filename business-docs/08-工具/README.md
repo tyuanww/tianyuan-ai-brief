@@ -18,7 +18,7 @@
 | `verify_customer_agent_pg15.mjs` | 在临时 PostgreSQL 15 cluster 中预检当前 reference DDL；只用 Unix socket、禁用 TCP，结束时删除 PGDATA/WAL，结果写入已忽略的 `output/` |
 | `build_customer_agent_backend_contract.mjs` | 从固定 owner 基线追加生成各版合同；`--write-intake` / `--check-intake` 对应 P2 候选 OpenAPI 1.16.0 / schema.v1.20（未冻结）；不覆盖旧版本 |
 | `build_customer_agent_csv_contract.mjs` | 从冻结的 1.21 / 1.23 原字节及 CSV protocol/storage 生成 DRAFT 1.22 / 1.24；`--write` 生成、`--check` 核验，不冻结、导出或授予运行 |
-| `build_customer_agent_runtime_closure.mjs` | 从冻结 schema1.24 原字节与既有运行事项的旧内容校验 ACL 补丁生成 DRAFT schema1.25 / installation；`--write` / `--check`，保持 OpenAPI1.22 和 current CSV profile，不冻结、导出或启用运行 |
+| `build_customer_agent_runtime_closure.mjs` | 从冻结 schema1.24 原字节与既有运行事项的旧内容校验 ACL 补丁生成 DRAFT schema1.25 / installation；`--write` / `--check`，保持 OpenAPI1.22 原字节，不修改 current 选择；冻结和交付由独立批准及 exporter 管理，不启用运行 |
 | `build_customer_agent_owner_contract.mjs` | 确定性聚合承接 SQL 与 OpenAPI；`--write` 生成、`--check` 验证；导出器从同一 Git commit 重建比较 |
 | `export_customer_agent_contract_set.mjs` | 只从调用方指定的完整 40 位来源 commit 读取 OpenAPI / DDL 与规范锚点，校验双哈希后在 ignored `output/` 原子生成只读、不可覆盖的版本化合同集；不读脏工作树、不写产品仓 |
 | `verify_customer_agent_g009_intake.mjs` | 校验 G0-09 四域接收清单的公开安全投影；允许预填态盘点，最终用 `--require-ready` 拒绝缺域、证据错配、质量分母错误和敏感值 |
@@ -239,4 +239,9 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 
 ### P2 CSV 输入合同
 
-[CSV 规范](../01-客服Agent项目/30-开发-进行中/19-P2CSV资料输入合同候选.md)的 OpenAPI 1.22.0／schema.v1.24 及 protocol、storage、installation 五项精确字节已按[独立批准](../01-客服Agent项目/90-评审/2026-10-08_P2CSV输入合同批准.md)冻结。`build_customer_agent_csv_contract.mjs --check` 校验生成一致性；当前 profile 为 `content-intake-csv-v1`，exporter 从含本次批准的完整 Git 提交导出 v3 十四件包并验证全部 runtime 伴随物。机器 DRAFT 元数据保留，缺批准、哈希漂移、漏件或降级仍拒绝；产品接收和 CSV 合成闭环另行留证，不启用真实来源、账号或运行。
+[CSV 规范](../01-客服Agent项目/30-开发-进行中/19-P2CSV资料输入合同候选.md)的 OpenAPI 1.22.0／schema.v1.24 及 protocol、storage、installation 五项精确字节已按[独立批准](../01-客服Agent项目/90-评审/2026-10-08_P2CSV输入合同批准.md)冻结。`build_customer_agent_csv_contract.mjs --check` 校验生成一致性；该冻结版本的 profile 为 `content-intake-csv-v1`，现行继任版本见下节；exporter 从含本次批准的完整 Git 提交导出 v3 十四件包并验证全部 runtime 伴随物。机器 DRAFT 元数据保留，缺批准、哈希漂移、漏件或降级仍拒绝；产品接收和 CSV 合成闭环另行留证，不启用真实来源、账号或运行。
+
+
+### P2 旧内容校验 ACL 完整交付
+
+[旧内容校验规范](../01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/legacy-check-contract.md)对应复用 OpenAPI1.22 / 新 schema1.25，三个机器对象已按独立精确批准冻结。`build_customer_agent_runtime_closure.mjs --check` 核对原字节；`test:intake-runtime-closure-contract` 覆盖派生、冻结/批准、完整十六件包、嵌套 CSV、DDL 精确前序加增量和防降级。current profile 为 `content-intake-legacy-check-v1`，exporter v4 要求同一完整来源 SHA，旧合法来源历史仍可消费。实际导出/产品接收另留回执，不接真实账号、凭据或生产环境；原候选 PG17 未变证据复用，不机械重跑旧专项。
