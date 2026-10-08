@@ -12793,7 +12793,7 @@ REVOKE ALL ON FUNCTION content_intake.selection_ids_valid(TEXT[]),content_intake
 COMMIT;
 -- END INTAKE USAGE
 
--- BEGIN INTAKE DIRECT 4e827fdfa20cf20e48afbb030e1b59f65e4bf846808e30de7dd53dfb7fc88475
+-- BEGIN INTAKE DIRECT 12d72d6700e97e1fd6931d1e430aad48e23ee2263b4b7fc849a27fb26f3e576c
 -- DRAFT direct-publication storage. Existing rows retain approval-v1 forever.
 -- No application grants or runtime activation; product transaction/reader overlays
 -- must be upgraded together before direct-v1 can be used.
@@ -12872,4 +12872,27 @@ ALTER TABLE content_intake.release_lineage
 -- Existing candidate/attempt/publication/lineage mutation guards include these
 -- new columns in their immutable projections. No historical policy is rewritten.
 RESET search_path;
+
+-- 不删除历史 grant。enabler/agent 的旧非 query 授权不再放行新业务操作。
+-- 本函数不授予应用角色，也不证明分配凭证。旧 grant 与旧 approval-v1 行不改写成 direct-v1。
+-- 分配谓词没有对应函数：不在这里新造，也不新增审批表。兼容规则见 17 号规范。
+CREATE OR REPLACE FUNCTION content_intake.authorization_deadline(
+  p_principal TEXT, p_action TEXT, p_scope TEXT, p_source TEXT, p_at TIMESTAMPTZ
+) RETURNS TIMESTAMPTZ LANGUAGE SQL STABLE SET search_path = pg_catalog AS $$
+  SELECT least(f.valid_until,max(g.expires_at))
+  FROM content_intake.principals p
+  JOIN content_intake.principal_facts f ON f.principal_id=p.principal_id AND f.facts_version=p.current_facts_version
+  JOIN content_intake.scopes s ON s.scope_id=p_scope AND s.tenant_id=p.tenant_id AND s.app_id=p.app_id
+  JOIN content_intake.grants g ON g.recipient_id=p.principal_id AND g.scope_id=s.scope_id
+    AND g.action=p_action AND g.kind='business' AND g.revoked_at IS NULL
+    AND (g.source_id IS NULL OR g.source_id=p_source) AND g.starts_at<=p_at AND p_at<g.expires_at
+  JOIN content_intake.role_rules r ON r.tenant_id=p.tenant_id AND r.app_id=p.app_id
+    AND r.department_id=ANY(f.department_ids) AND r.job_id=f.job_id
+  WHERE p.principal_id=p_principal AND f.enabled AND f.checked_at<=p_at AND p_at<f.valid_until
+    AND EXISTS (SELECT 1 FROM content_intake.sources src WHERE src.source_id=p_source AND src.scope_id=s.scope_id)
+  GROUP BY f.valid_until
+  HAVING count(DISTINCT r.role)=1
+    AND (min(r.role) IN ('director','manager','supervisor','lead')
+      OR (min(r.role) IN ('agent','enabler') AND p_action='query'))
+$$;
 -- END INTAKE DIRECT

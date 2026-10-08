@@ -151,6 +151,52 @@ try {
    VALUES ('direct-plan','manager','rollback','direct-rollback','release-a','announcement-a','direct-v1',clock_timestamp());`;
   sql('BEGIN; '+directRollback+' ROLLBACK');checks++;
   denies('direct rollback requires confirmation',directRollback.replace("'direct-v1',clock_timestamp()","'direct-v1',NULL"),/check constraint/);
+  // Synthetic ceiling only. Historical grant rows stay; no real open_id.
+  // This delta has no allocation function, so the probe calls authorization_deadline.
+  sql(`BEGIN;
+   INSERT INTO backend_identity.subject_bindings(binding_id,provider,tenant,subject,user_id,subject_hash,enabled,role) VALUES
+    ('binding-supervisor','synthetic','tenant','supervisor','supervisor','${hash}',true,'agent'),
+    ('binding-lead','synthetic','tenant','lead','lead','${hash}',true,'agent'),
+    ('binding-enabler','synthetic','tenant','enabler','enabler','${hash}',true,'agent');
+   INSERT INTO content_intake.principals VALUES
+    ('supervisor','supervisor','tenant','app','confirmed-synthetic','person-supervisor',1,0),
+    ('lead','lead','tenant','app','confirmed-synthetic','person-lead',1,0),
+    ('enabler','enabler','tenant','app','confirmed-synthetic','person-enabler',1,0);
+   INSERT INTO content_intake.principal_facts VALUES
+    ('supervisor',1,ARRAY['dept'],'supervisor-job',true,clock_timestamp(),clock_timestamp()+interval '4 minutes','${hash}'),
+    ('lead',1,ARRAY['dept'],'lead-job',true,clock_timestamp(),clock_timestamp()+interval '4 minutes','${hash}'),
+    ('enabler',1,ARRAY['dept'],'enabler-job',true,clock_timestamp(),clock_timestamp()+interval '4 minutes','${hash}');
+   INSERT INTO content_intake.role_rules VALUES
+    ('tenant','app','dept','supervisor-job',1,'supervisor'),
+    ('tenant','app','dept','lead-job',1,'lead'),
+    ('tenant','app','dept','enabler-job',1,'enabler');
+   INSERT INTO content_intake.grants(grant_id,kind,issuer_id,recipient_id,tenant_id,app_id,scope_id,action,starts_at,expires_at,steward_id,reason) VALUES
+    ('alloc-import','allocation','director','director','tenant','app','scope-a','import',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '2 hours','director','synthetic import root'),
+    ('alloc-query','allocation','director','director','tenant','app','scope-a','query',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '2 hours','director','synthetic query root'),
+    ('alloc-manager-publish','allocation','director','manager','tenant','app','scope-a','publish',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '2 hours','director','synthetic director business parent');
+   INSERT INTO content_intake.grants(grant_id,kind,issuer_id,recipient_id,tenant_id,app_id,scope_id,action,starts_at,expires_at,steward_id,parent_grant_id,reason) VALUES
+    ('director-publish','business','manager','director','tenant','app','scope-a','publish',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour','director','alloc-manager-publish','synthetic director publish'),
+    ('supervisor-publish','business','director','supervisor','tenant','app','scope-a','publish',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour','director','allocation','synthetic supervisor publish'),
+    ('lead-publish','business','director','lead','tenant','app','scope-a','publish',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour','director','allocation','synthetic lead publish'),
+    ('enabler-publish','business','director','enabler','tenant','app','scope-a','publish',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour','director','allocation','synthetic historical enabler publish'),
+    ('agent-import','business','director','agent','tenant','app','scope-a','import',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour','director','alloc-import','synthetic historical agent import'),
+    ('enabler-import','business','director','enabler','tenant','app','scope-a','import',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour','director','alloc-import','synthetic historical enabler import'),
+    ('agent-query','business','director','agent','tenant','app','scope-a','query',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour','director','alloc-query','synthetic agent query'),
+    ('enabler-query','business','director','enabler','tenant','app','scope-a','query',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour','director','alloc-query','synthetic enabler query');
+   COMMIT;`);
+  for (const actor of ['director','manager','supervisor','lead']) {
+   assert.equal(sql(`SELECT content_intake.authorization_deadline('${actor}','publish','scope-a','source-a',clock_timestamp()) IS NOT NULL`),'t',actor);checks++;
+  }
+  for (const actor of ['agent','enabler']) {
+   assert.equal(sql(`SELECT content_intake.authorization_deadline('${actor}','query','scope-a','source-a',clock_timestamp()) IS NOT NULL`),'t',actor+' query');checks++;
+   for (const action of ['publish','import']) {
+    assert.equal(sql(`SELECT content_intake.authorization_deadline('${actor}','${action}','scope-a','source-a',clock_timestamp()) IS NULL`),'t',actor+' '+action);checks++;
+   }
+  }
+  assert.equal(sql("SELECT count(*) FROM content_intake.grants WHERE grant_id IN ('allocation','manager-publish','agent-publish') AND revoked_at IS NULL"),'3');checks++;
+  assert.equal(sql("SELECT kind||':'||action FROM content_intake.grants WHERE grant_id='agent-publish'"),'business:publish');checks++;
+  assert.equal(sql("SELECT publication_policy FROM content_intake.candidate_versions WHERE candidate_id='candidate-a'"),'approval-v1');checks++;
+  assert.equal(sql('BEGIN; '+directSetup+" SELECT reviewer_facts_version IS NULL AND reviewer_generation IS NULL AND approval_facts_version IS NULL AND approval_generation IS NULL FROM content_intake.commit_tickets WHERE publication_policy='direct-v1' AND operation_id='direct-op'; ROLLBACK").split('\n').at(-2),'t');checks++;
  }
  const rollback=`${releases}
  INSERT INTO content_intake.rollback_plans VALUES ('plan','release-b','release-a','${hash}','manager',clock_timestamp());

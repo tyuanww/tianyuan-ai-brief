@@ -1,6 +1,6 @@
 {
   "status": "PASS",
-  "checks": 112,
+  "checks": 126,
   "postgres": "postgres (PostgreSQL) 15.18 (Homebrew)",
   "scope": "storage and authorization predicate only; publish/concurrency/runtime NOT TESTED"
 }
