@@ -16,6 +16,7 @@ export const releaseSteps = [
   'test:intake-management-contract', 'check:intake-management-contract', 'lint:intake-management-openapi',
   'test:intake-direct-contract', 'check:intake-direct-contract', 'lint:intake-direct-openapi',
   'test:intake-shop-directory-contract', 'check:intake-shop-directory-contract', 'lint:intake-shop-directory-openapi',
+  'test:intake-csv-contract', 'check:intake-csv-contract', 'lint:intake-csv-openapi',
   'test:sql-grammar', 'test:architecture-contract', 'check:arch-diagrams', 'audit:deps',
 ];
 

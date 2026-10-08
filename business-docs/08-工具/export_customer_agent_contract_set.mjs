@@ -48,12 +48,14 @@ import {
   buildIntakeShopDirectoryContractFiles, INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS, INTAKE_SHOP_DIRECTORY_SOURCES, INTAKE_RUNTIME_SOURCES,
 } from "./build_customer_agent_backend_contract.mjs";
 
+import { buildCsvContractFiles, CSV_PATHS, CSV_SOURCES } from "./build_customer_agent_csv_contract.mjs";
+
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryRoot = path.resolve(path.dirname(scriptPath), "../..");
 const defaultOutputRoot = path.join(repositoryRoot, "output/customer-agent-contract-sets");
 
 export const CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v1";
-export const CONTRACT_SET_TOOL_VERSION = "1.8.0";
+export const CONTRACT_SET_TOOL_VERSION = "1.9.0";
 export const RUNTIME_CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v2";
 export const INTAKE_RUNTIME_APPROVAL_PATH = "business-docs/01-客服Agent项目/90-评审/2026-10-08_P2运行接入合同批准.md";
 export const RUNTIME_BUNDLE_PATHS = Object.freeze({
@@ -67,6 +69,26 @@ export const RUNTIME_BUNDLE_PATHS = Object.freeze({
   provenance: {source_path:'business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/provenance.json',file:'intake-runtime-provenance.v1.json'},
   protocol: {source_path:'business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/protocol.json',file:'intake-runtime-protocol.v1.json'},
 });
+
+
+export const CSV_CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v3";
+export const INTAKE_CSV_APPROVAL_PATH = "business-docs/01-客服Agent项目/90-评审/2026-10-08_P2CSV输入合同批准.md";
+export const CSV_BUNDLE_PATHS = Object.freeze({...RUNTIME_BUNDLE_PATHS,
+  installation:{source_path:CSV_PATHS.installation,file:'intake-csv-installation.v1.json'},
+  csv:{source_path:CSV_SOURCES.storage,file:'intake-csv-format.v1.sql'},
+  csvProtocol:{source_path:CSV_SOURCES.protocol,file:'intake-csv-protocol.v1.json'},
+});
+export function assertIntakeCsvExportGate(readSource,hashes) {
+  assertFrozenIntakePair(readSource,hashes,{paths:CSV_PATHS,predecessor:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS,
+    approvalPath:INTAKE_CSV_APPROVAL_PATH,label:'P2 CSV 输入合同',anchor:'**P2 CSV 机器合同增量：**'});
+  const generated=buildCsvContractFiles(readSource);
+  for(const key of ['openapi','database','installation']) if(!readSource(CSV_PATHS[key]).equals(generated[key])) throw new Error(`CSV 派生产物漂移：${key}`);
+  for(const [file,anchor] of [[INTAKE_CSV_APPROVAL_PATH,'**批准安装清单：**'],[CSV_PATHS.increment,'**CSV 安装清单：**']]) {
+    const lines=linesForAnchor(utf8(readSource(file),file),file,anchor);
+    if(lines.length!==1 || lines[0].match(/[0-9a-f]{64}/g)?.join()!==sha256(generated.installation)) throw new Error('CSV 安装清单批准哈希不一致');
+  }
+  return JSON.parse(generated.installation);
+}
 
 
 export const CONTRACT_SOURCE_PATHS = Object.freeze({
@@ -403,14 +425,16 @@ export function loadContractSetFromCommit({
   let intakeManagementProfile = false;
   let intakeDirectProfile = false;
   let intakeRuntimeProfile = false;
+  let intakeCsvProfile = false;
   if (ownerProfile) {
     const profile = JSON.parse(utf8(readSource(OWNER_PROFILE_PATH), OWNER_PROFILE_PATH));
     if (Object.keys(profile).sort().join(",") !== "profile,schema"
         || profile.schema !== "customer-agent-contract-profile/v1"
-        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2", "content-intake-usage-v1", "content-intake-quality-v1", "content-intake-management-v1", "content-intake-direct-v1", "content-intake-runtime-v1"].includes(profile.profile)) {
+        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2", "content-intake-usage-v1", "content-intake-quality-v1", "content-intake-management-v1", "content-intake-direct-v1", "content-intake-runtime-v1", "content-intake-csv-v1"].includes(profile.profile)) {
       throw new Error("未知或不封闭的合同来源 profile");
     }
-    intakeRuntimeProfile = profile.profile === "content-intake-runtime-v1";
+    intakeCsvProfile = profile.profile === "content-intake-csv-v1";
+    intakeRuntimeProfile = intakeCsvProfile || profile.profile === "content-intake-runtime-v1";
     intakeDirectProfile = intakeRuntimeProfile || profile.profile === "content-intake-direct-v1";
     intakeManagementProfile = intakeDirectProfile || profile.profile === "content-intake-management-v1";
     intakeQualityProfile = intakeManagementProfile || profile.profile === "content-intake-quality-v1";
@@ -435,7 +459,10 @@ export function loadContractSetFromCommit({
   if (!intakeManagementProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_MANAGEMENT_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-management profile");
   if (!intakeDirectProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_DIRECT_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-direct profile");
   if (!intakeRuntimeProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_RUNTIME_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-runtime profile");
-  const sourcePaths = intakeRuntimeProfile
+  if (!intakeCsvProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_CSV_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-csv profile");
+  const sourcePaths = intakeCsvProfile
+    ? { ...CONTRACT_SOURCE_PATHS,openapi:CSV_PATHS.openapi,database:CSV_PATHS.database }
+    : intakeRuntimeProfile
     ? { ...CONTRACT_SOURCE_PATHS,openapi:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.openapi,database:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.database }
     : intakeDirectProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_DIRECT_CONTRACT_PATHS.openapi, database: INTAKE_DIRECT_CONTRACT_PATHS.database }
@@ -621,7 +648,8 @@ export function loadContractSetFromCommit({
     assertIntakeDirectExportGate(readSource, {databaseHash:sha256(generated.database),openapiHash:sha256(generated.openapi)});
   }
 
-  if (intakeRuntimeProfile) assertIntakeRuntimeExportGate(readSource,{databaseHash,openapiHash});
+  if (intakeRuntimeProfile) assertIntakeRuntimeExportGate(readSource,intakeCsvProfile ? {databaseHash:sha256(readSource(INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.database)),openapiHash:sha256(readSource(INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.openapi))} : {databaseHash,openapiHash});
+  if (intakeCsvProfile) assertIntakeCsvExportGate(readSource,{databaseHash,openapiHash});
 
   const openapiVersion = extractOpenapiVersion(sources.openapi);
   const databaseVersion = extractDatabaseVersion(sources.database);
@@ -634,7 +662,7 @@ export function loadContractSetFromCommit({
   });
   const databaseFile = `schema-v${databaseVersion.replace(/^schema\.v/, "")}.sql`;
   const manifest = {
-    schema: intakeRuntimeProfile ? RUNTIME_CONTRACT_SET_SCHEMA : CONTRACT_SET_SCHEMA,
+    schema: intakeCsvProfile ? CSV_CONTRACT_SET_SCHEMA : intakeRuntimeProfile ? RUNTIME_CONTRACT_SET_SCHEMA : CONTRACT_SET_SCHEMA,
     contract_set_id: contractSetId,
     source_repository: "ai-赋能立项",
     source_git_sha: exactSourceGitSha,
@@ -657,7 +685,7 @@ export function loadContractSetFromCommit({
   };
   const runtimeFiles=new Map();
   if (intakeRuntimeProfile) {
-    manifest.runtime=Object.fromEntries(Object.entries(RUNTIME_BUNDLE_PATHS).map(([key,descriptor])=>{
+    manifest.runtime=Object.fromEntries(Object.entries(intakeCsvProfile ? CSV_BUNDLE_PATHS : RUNTIME_BUNDLE_PATHS).map(([key,descriptor])=>{
       const bytes=readSource(descriptor.source_path);runtimeFiles.set(descriptor.file,bytes);
       return [key,{version:'1',...descriptor,sha256:sha256(bytes),bytes:bytes.byteLength}];
     }));
@@ -782,15 +810,17 @@ function parseContractSetManifest(content) {
   } catch (error) {
     throw new Error(`contract-set.json 不是合法 JSON：${error.message}`);
   }
-  const isRuntime=manifest.schema===RUNTIME_CONTRACT_SET_SCHEMA;
+  const isCsv=manifest.schema===CSV_CONTRACT_SET_SCHEMA;
+  const isRuntime=isCsv || manifest.schema===RUNTIME_CONTRACT_SET_SCHEMA;
+  const bundlePaths=isCsv ? CSV_BUNDLE_PATHS : RUNTIME_BUNDLE_PATHS;
   assertExactKeys(manifest, isRuntime ? [...REQUIRED_MANIFEST_KEYS,"runtime"] : REQUIRED_MANIFEST_KEYS, "contract-set.json");
   assertExactKeys(manifest.openapi, REQUIRED_CONTRACT_KEYS, "contract-set.json.openapi");
   assertExactKeys(manifest.database, REQUIRED_CONTRACT_KEYS, "contract-set.json.database");
   if (manifest.schema !== CONTRACT_SET_SCHEMA && !isRuntime) throw new Error("contract-set schema 不受支持");
   if (isRuntime) {
-    if (manifest.openapi.version!=='1.21.0' || manifest.database.version!=='schema.v1.23') throw new Error('runtime bundle只支持1.21.0/schema.v1.23');
-    assertExactKeys(manifest.runtime,Object.keys(RUNTIME_BUNDLE_PATHS),'contract-set.runtime');
-    for (const [key,expected] of Object.entries(RUNTIME_BUNDLE_PATHS)) {
+    if (manifest.openapi.version!==(isCsv?'1.22.0':'1.21.0') || manifest.database.version!==(isCsv?'schema.v1.24':'schema.v1.23')) throw new Error('runtime bundle版本组合不受支持');
+    assertExactKeys(manifest.runtime,Object.keys(bundlePaths),'contract-set.runtime');
+    for (const [key,expected] of Object.entries(bundlePaths)) {
       const actual=manifest.runtime[key]; assertExactKeys(actual,REQUIRED_CONTRACT_KEYS,`runtime.${key}`);
       if (actual.version!=='1' || actual.file!==expected.file || actual.source_path!==expected.source_path) throw new Error(`runtime工件不匹配：${key}`);
     }
@@ -940,22 +970,26 @@ export async function verifyContractSetDirectory({
   }
 
   if (manifest.runtime) {
+    const isCsv=manifest.schema===CSV_CONTRACT_SET_SCHEMA;
+    const bundlePaths=isCsv ? CSV_BUNDLE_PATHS : RUNTIME_BUNDLE_PATHS;
     const installation=JSON.parse(utf8(await readRegularFileNoFollow(path.join(directory,manifest.runtime.installation.file),canonicalDirectory),'runtime installation'));
     if (installation.schema!=='content-intake-installation/v1' || installation.openapi.sha256!==manifest.openapi.sha256
       || installation.database.sha256!==manifest.database.sha256 || installation.companionAclRequired!==true
       || installation.productMode?.skipMissingDependencies!==false) throw new Error('runtime安装清单不匹配');
-    assertExactKeys(installation.sources,Object.keys(RUNTIME_BUNDLE_PATHS).filter(key=>key!=='installation'),'runtime installation sources');
+    assertExactKeys(installation.sources,Object.keys(bundlePaths).filter(key=>key!=='installation'),'runtime installation sources');
     for (const [key,item] of Object.entries(installation.sources)) {
       if (item.path!==manifest.runtime[key]?.source_path || item.sha256!==manifest.runtime[key]?.sha256) throw new Error(`runtime安装工件哈希不一致：${key}`);
     }
     const expectedOrder=['product-migrations','roles','organization','session','directory','directoryAcl','acl','environment-login-bindings'];
-    const expectedArtifacts=['openapi','database',...Object.keys(RUNTIME_BUNDLE_PATHS)].sort();
+    if(isCsv) expectedOrder.splice(expectedOrder.indexOf('acl'),0,'csv');
+    const expectedArtifacts=['openapi','database',...Object.keys(bundlePaths)].sort();
     if (installation.openapi.path!==manifest.openapi.source_path || installation.database.path!==manifest.database.source_path
       || installation.productMode.atomicCandidateInstall!==true
       || JSON.stringify(installation.productMode.order)!==JSON.stringify(expectedOrder)
       || !Array.isArray(installation.requiredBundleArtifacts)
       || JSON.stringify([...installation.requiredBundleArtifacts].sort())!==JSON.stringify(expectedArtifacts)
       || installation.capabilityLogin!==false || installation.environmentCredentialsIncluded!==false) throw new Error('runtime安装边界不一致');
+    if(isCsv && (installation.sqlContract!=='schema.v1.24' || installation.productMode.csvInputImplementationRequired!==true || installation.productMode.csvProductionConsumerReady!==false || installation.referenceMode?.runtimeReady!==false || JSON.stringify(installation.referenceMode?.includes)!==JSON.stringify(['roles','organization','session','directory','directoryAcl','csv']))) throw new Error('CSV 产品实施边界不一致');
     const provenance=JSON.parse(utf8(await readRegularFileNoFollow(path.join(directory,manifest.runtime.provenance.file),canonicalDirectory),'runtime provenance'));
     if (JSON.stringify(installation.productMode.implementation)!==JSON.stringify(provenance.implementationDependencies)) throw new Error('runtime overlay依赖不一致');
   }
