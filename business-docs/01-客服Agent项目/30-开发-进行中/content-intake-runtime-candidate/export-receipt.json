@@ -1,0 +1,24 @@
+{
+  "status": "EXPORTED_VERIFIED_NOT_ACTIVATED",
+  "sourceGitSha": "e35c0c01b5510ffcff75f2b19ba441ad53a9b504",
+  "contractSetId": "cs-ai-c11-openapi-1.21.0-schema-1.23-e35c0c01b551",
+  "manifestSha256": "a15e0193a8e577e9f1c4a1c52b5b7cba7a11674e3cd157c1eb135fa5e4f2aa1a",
+  "directory": "output/customer-agent-contract-sets/cs-ai-c11-openapi-1.21.0-schema-1.23-e35c0c01b551",
+  "files": 12,
+  "runtimeArtifacts": 9,
+  "readOnly": true,
+  "exactSourceVerification": "writeImmutableContractSet followed by verifyContractSetDirectory against the exact source commit inside the actual --write CLI",
+  "command": "node business-docs/08-工具/export_customer_agent_contract_set.mjs --write --source-git-sha=e35c0c01b5510ffcff75f2b19ba441ad53a9b504 --expect-openapi-sha256=bde5124df711333e6860c0cea1734f47fe5c45c95b56c0d5cde3d2e9466246d7 --expect-database-sha256=4c2969459265262fabfe38ae425ab8c1275c46274d03ae09ec39b75ae9cc978e",
+  "exit": 0,
+  "logs": {
+    "output/content-intake-runtime-freeze/export.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "output/content-intake-runtime-freeze/export.json": "e7689cf32660f9bd660cf8841bb9b10e65c324e7bef862a7785c9530b44642d7",
+    "output/content-intake-runtime-freeze/export.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "output/content-intake-runtime-freeze/unit.log": "2d7a26c8aedc715bf8e6248ed064d4862dc5d13af96dea5ab28dd9e04ce3b538"
+  },
+  "frozenChecksSourceCommit": "e35c0c01b5510ffcff75f2b19ba441ad53a9b504",
+  "machineDraftMetadataPreserved": true,
+  "productConsumedAtExport": false,
+  "runtimeActivated": false,
+  "fullReview": "INCOMPLETE"
+}
