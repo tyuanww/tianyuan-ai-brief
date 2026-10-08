@@ -1,0 +1,470 @@
+{
+  "schema": "content-intake-runtime-closure-verification/v1",
+  "status": "DRAFT",
+  "scope": "Synthetic ACL candidate only; no formal intake or runtime activation",
+  "sourceBase": "91a7940465c8621404b50b67f97181923015b2b5",
+  "verifiedAtUtc": "2026-10-08T16:17:27.682802+00:00",
+  "environment": {
+    "node": "v24.19.0",
+    "postgres": "postgres (PostgreSQL) 15.18 (Homebrew)",
+    "platform": "darwin/arm64"
+  },
+  "inputs": [
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/legacy-check-acl.v1.sql",
+      "bytes": 865,
+      "sha256": "6e286747d15b8af6a11a03d9b00c33d36ac62c36f25efa653285c1cbc6984584"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/legacy-check-installation.v1.json",
+      "bytes": 4261,
+      "sha256": "fbc601f305013b54e5273e3c4b97faf009f348c3db6a6b4c9f397cfd87707418"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.25.sql",
+      "bytes": 706504,
+      "sha256": "0620ee58a19543736f58b8dcf54ad5a2d0865cd48a74e24a245bbb384f1b7998"
+    },
+    {
+      "path": "business-docs/08-工具/build_customer_agent_runtime_closure.mjs",
+      "bytes": 3906,
+      "sha256": "e0ff8b6cd0d8d799b7b527d5022c1adb337dbd310c1473aeeb65e4b00c28cb75"
+    },
+    {
+      "path": "sites/tests/content-intake-runtime-closure.test.mjs",
+      "bytes": 3843,
+      "sha256": "fa9ce437f9f80236ccf1daa89a29c32ea26ed56a6306be3791fbaca734c30417"
+    },
+    {
+      "path": "sites/tests/content-intake-runtime-closure.pg.mjs",
+      "bytes": 18599,
+      "sha256": "cdf1e437931512372f6aaac5228cfb688e09360b25af2824fb4ea363f2cb9c73"
+    },
+    {
+      "path": "sites/package.json",
+      "bytes": 11385,
+      "sha256": "5f3b1ec74dc2d2e7b33bc7fb9640b810bc04d4ade1be11b1c293ddb9cc67e941"
+    },
+    {
+      "path": "sites/scripts/quality-plan.mjs",
+      "bytes": 3799,
+      "sha256": "4cb2e000a8fc2752e7a534a23d8841757235cb0f096cf80a2e8d6c1f4ec2e999"
+    },
+    {
+      "path": "sites/tests/release-test-wiring.test.mjs",
+      "bytes": 4850,
+      "sha256": "c4e8d2627bb69e21aa6b5f360ea4814ce4e7b35aba48396129b00ee33bf5b0e3"
+    }
+  ],
+  "unchangedFrozenInputs": [
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.24.sql",
+      "bytes": 705427,
+      "sha256": "c4ceffa961728423b755b00d551b9ab67fbf33ffe1dd87d8e671f6d151f744c5"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.22.yaml",
+      "bytes": 423919,
+      "sha256": "3f741eb980aba1cd9a2a273b25771b50299e1aef3acbc6a1579b57541ed43a94"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/installation.generated.json",
+      "bytes": 5561,
+      "sha256": "e7bee22391c96c498d96e20e868cbf90429405ac3793eeb02bbc93e817939a28"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/contract-profile.v1.json",
+      "bytes": 91,
+      "sha256": "04c134975fcc35815b684b87c61fc5c05af5ca9288172eb278939e3c3f362970"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/roles.sql",
+      "bytes": 978,
+      "sha256": "54a7a75d8b58f0217cdbc782b450ffc0f256633cb050a509fb930274e17fb9ee"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/organization.sql",
+      "bytes": 7893,
+      "sha256": "656113a5b12a5f6438df467e1afe5858b26c60062568cec4c4535069a283ca14"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/session-lock.sql",
+      "bytes": 3763,
+      "sha256": "4447e3d2a4477cd66aea754d2eb970d6e92f328c61192bb26edfc054d1768ac6"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/purpose-acl.sql",
+      "bytes": 17007,
+      "sha256": "59a5fda26bd839a2edea3d73a2c009f12dba7e89edab787b80c23364dc583e05"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/directory-acl.sql",
+      "bytes": 5378,
+      "sha256": "49b4555f80cfe8d7302c67d081cc49a915949b613acda564dcd408a6232c67fa"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-shop-directory-candidate/storage.delta.sql",
+      "bytes": 44220,
+      "sha256": "73254ecac5144e7416e87177e1443944579cbc82ec93ed89273e98e4d1d5d9fc"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/provenance.json",
+      "bytes": 3659,
+      "sha256": "7b3699b3fbd94918c11f9250f643b6e896a634cbf262d022dc6b56c422a56c5c"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/protocol.json",
+      "bytes": 2189,
+      "sha256": "4546e98510add2b02b97baaca5bdd9603208502b891fe3e92a3f3bc3ed4f6030"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/storage.delta.sql",
+      "bytes": 5283,
+      "sha256": "f88db715af84ff0a4dc056ab3a37fdaf71cdd0ae439a78b2d565952a1b93b535"
+    },
+    {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/protocol.json",
+      "bytes": 1642,
+      "sha256": "ff83a005795f6a5bdd6597329d93c5fdc132267613886b701193bdf8583b62ca"
+    }
+  ],
+  "checks": [
+    {
+      "name": "reproducible generator",
+      "status": "PASS"
+    },
+    {
+      "name": "static unit",
+      "status": "PASS",
+      "passed": 3,
+      "command": "node --test sites/tests/content-intake-runtime-closure.test.mjs"
+    },
+    {
+      "name": "isolated PG15 actual constraint/trigger closure and complete reference installation",
+      "status": "PASS",
+      "passed": 17,
+      "command": "node sites/tests/content-intake-runtime-closure.pg.mjs"
+    },
+    {
+      "name": "standalone-test routing",
+      "status": "PASS",
+      "passed": 4,
+      "command": "node --test sites/tests/release-test-wiring.test.mjs"
+    },
+    {
+      "name": "test:release",
+      "status": "PASS",
+      "command": "npm --prefix sites run test:release",
+      "passed": 46,
+      "exitCode": 0,
+      "steps": [
+        {
+          "name": "test",
+          "seconds": 145.75,
+          "exitCode": 0
+        },
+        {
+          "name": "test:boundary-integration",
+          "seconds": 38.2,
+          "exitCode": 0
+        },
+        {
+          "name": "test:layout-ui",
+          "seconds": 3.35,
+          "exitCode": 0
+        },
+        {
+          "name": "test:ui",
+          "seconds": 70.17,
+          "exitCode": 0
+        },
+        {
+          "name": "test:arch-board-ui",
+          "seconds": 11.55,
+          "exitCode": 0
+        },
+        {
+          "name": "test:business",
+          "seconds": 35.98,
+          "exitCode": 0
+        },
+        {
+          "name": "test:customer-agent-python-tools",
+          "seconds": 3.23,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:openapi",
+          "seconds": 1.53,
+          "exitCode": 0
+        },
+        {
+          "name": "check:owner-contract",
+          "seconds": 0.13,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:owner-openapi",
+          "seconds": 1.08,
+          "exitCode": 0
+        },
+        {
+          "name": "test:backend-candidate",
+          "seconds": 0.34,
+          "exitCode": 0
+        },
+        {
+          "name": "check:backend-contract",
+          "seconds": 17.23,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:backend-openapi",
+          "seconds": 1.15,
+          "exitCode": 0
+        },
+        {
+          "name": "test:ops-loop-candidate",
+          "seconds": 0.31,
+          "exitCode": 0
+        },
+        {
+          "name": "check:ops-loop-contract",
+          "seconds": 0.12,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:ops-loop-openapi",
+          "seconds": 1.08,
+          "exitCode": 0
+        },
+        {
+          "name": "test:coach-publish-candidate",
+          "seconds": 0.26,
+          "exitCode": 0
+        },
+        {
+          "name": "check:coach-publish-contract",
+          "seconds": 0.11,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:coach-publish-openapi",
+          "seconds": 0.95,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-contract",
+          "seconds": 25.31,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-contract",
+          "seconds": 0.17,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-openapi",
+          "seconds": 0.86,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-usage-contract",
+          "seconds": 35.01,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-usage-contract",
+          "seconds": 0.17,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-usage-openapi",
+          "seconds": 1.06,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-quality-contract",
+          "seconds": 48.64,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-quality-contract",
+          "seconds": 0.17,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-quality-openapi",
+          "seconds": 1.27,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-management-contract",
+          "seconds": 75.43,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-management-contract",
+          "seconds": 0.18,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-management-openapi",
+          "seconds": 0.96,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-direct-contract",
+          "seconds": 79.74,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-direct-contract",
+          "seconds": 0.18,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-direct-openapi",
+          "seconds": 0.89,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-shop-directory-contract",
+          "seconds": 70.37,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-shop-directory-contract",
+          "seconds": 0.18,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-shop-directory-openapi",
+          "seconds": 0.86,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-csv-contract",
+          "seconds": 60.15,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-csv-contract",
+          "seconds": 0.11,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-csv-openapi",
+          "seconds": 1.06,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-runtime-closure-contract",
+          "seconds": 0.38,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-runtime-closure-contract",
+          "seconds": 0.11,
+          "exitCode": 0
+        },
+        {
+          "name": "test:sql-grammar",
+          "seconds": 0.25,
+          "exitCode": 0
+        },
+        {
+          "name": "test:architecture-contract",
+          "seconds": 0.26,
+          "exitCode": 0
+        },
+        {
+          "name": "check:arch-diagrams",
+          "seconds": 2.31,
+          "exitCode": 0
+        },
+        {
+          "name": "audit:deps",
+          "seconds": 1.13,
+          "exitCode": 0
+        }
+      ]
+    }
+  ],
+  "logs": [
+    {
+      "path": "output/content-intake-runtime-closure/unit-final.log",
+      "bytes": 399,
+      "sha256": "b8a86d8904df195c060b4dcff0b9303388887d046c89a23aa4e64efd71e08a85"
+    },
+    {
+      "path": "output/content-intake-runtime-closure/pg-final.log",
+      "bytes": 1532,
+      "sha256": "7f64fbe540f6707fc6fb7005db813464e52366ce3799ac3b2603bbd5dde0ede2"
+    },
+    {
+      "path": "output/content-intake-runtime-closure/pg-summary.json",
+      "bytes": 50479,
+      "sha256": "e04f3e140deb3a5450392bfbad13963089791e0122f6121c7c1f27b943ac95b7"
+    },
+    {
+      "path": "output/content-intake-runtime-closure/wiring-final.log",
+      "bytes": 451,
+      "sha256": "035253b76643bb609f34da180c7ab8130d6dace6db6f74262f0888507e5f1298"
+    },
+    {
+      "path": "output/content-intake-runtime-closure/release-attempt-1.log",
+      "bytes": 29353,
+      "sha256": "9d86986044fed619b0adba05727209d3f86abe79391b60d57271fc16c6374cb3"
+    },
+    {
+      "path": "output/content-intake-runtime-closure/release-final.log",
+      "bytes": 225940,
+      "sha256": "1d0c553d3c6722ffc5b0c2a895505584f85e80c7161fcd1ee5c0b8c270069ee6"
+    }
+  ],
+  "previousFailure": {
+    "scope": "first release attempt before standalone PG route registration",
+    "test": "every standalone test has a release route or explicit isolated PG route",
+    "passed": 297,
+    "failed": 1,
+    "resolution": "registered explicit isolated PG command and machine/release static checks; candidate SQL/schema/installation bytes unchanged"
+  },
+  "review": {
+    "localPrimary": "PASS: generator, SQL, installation, static and PG test source inspected; no new actionable defect",
+    "localIndependent": "PASS: root agent read-only review of same candidate scope; no new actionable defect",
+    "externalFull": "INCOMPLETE",
+    "runtimeActivation": "NOT_AUTHORIZED"
+  },
+  "productProbe": {
+    "status": "PASS",
+    "scope": "separate disposable product DB only, exact candidate SQL applied explicitly; original checked-in fixture and contract lock unchanged",
+    "passed": 1,
+    "skipped": 151,
+    "root": "product integration workspace .gstack/qa-reports/intake-csv-candidate/",
+    "artifacts": [
+      {
+        "path": "probe-draft-legacy-acl.mjs",
+        "sha256": "9fe07db332a33b34514a8c9f48c8d27fa3d26f31782d7762052b755f3f158421"
+      },
+      {
+        "path": "draft-legacy-acl-probe.log",
+        "sha256": "fcd5ee2339cef7444f096d169f9b281d6f2b26657895c7b903d201e91e3dfd90"
+      },
+      {
+        "path": "legacy-permission-failure.log",
+        "sha256": "7dff7f71e3a02a1c312146eb6d5258200a53c01a1ea8a33971da9b88324846f3"
+      }
+    ],
+    "baselineFailureRetained": true,
+    "productIntake": false,
+    "completeRollbackVerified": false,
+    "implementationCommit": "f6f8cf35ef9a9007cddade8a0c7fa4b648bef9a1"
+  },
+  "remaining": [
+    "Exact successor approval and freeze",
+    "Versioned complete exporter/intake support and actual artifact verification",
+    "Product append migration and startup verifier after intake",
+    "Product nonempty legacy publish/rollback regression; no production activation implied"
+  ]
+}

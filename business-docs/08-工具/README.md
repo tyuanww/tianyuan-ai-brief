@@ -18,6 +18,7 @@
 | `verify_customer_agent_pg15.mjs` | 在临时 PostgreSQL 15 cluster 中预检当前 reference DDL；只用 Unix socket、禁用 TCP，结束时删除 PGDATA/WAL，结果写入已忽略的 `output/` |
 | `build_customer_agent_backend_contract.mjs` | 从固定 owner 基线追加生成各版合同；`--write-intake` / `--check-intake` 对应 P2 候选 OpenAPI 1.16.0 / schema.v1.20（未冻结）；不覆盖旧版本 |
 | `build_customer_agent_csv_contract.mjs` | 从冻结的 1.21 / 1.23 原字节及 CSV protocol/storage 生成 DRAFT 1.22 / 1.24；`--write` 生成、`--check` 核验，不冻结、导出或授予运行 |
+| `build_customer_agent_runtime_closure.mjs` | 从冻结 schema1.24 原字节与既有运行事项的旧内容校验 ACL 补丁生成 DRAFT schema1.25 / installation；`--write` / `--check`，保持 OpenAPI1.22 和 current CSV profile，不冻结、导出或启用运行 |
 | `build_customer_agent_owner_contract.mjs` | 确定性聚合承接 SQL 与 OpenAPI；`--write` 生成、`--check` 验证；导出器从同一 Git commit 重建比较 |
 | `export_customer_agent_contract_set.mjs` | 只从调用方指定的完整 40 位来源 commit 读取 OpenAPI / DDL 与规范锚点，校验双哈希后在 ignored `output/` 原子生成只读、不可覆盖的版本化合同集；不读脏工作树、不写产品仓 |
 | `verify_customer_agent_g009_intake.mjs` | 校验 G0-09 四域接收清单的公开安全投影；允许预填态盘点，最终用 `--require-ready` 拒绝缺域、证据错配、质量分母错误和敏感值 |

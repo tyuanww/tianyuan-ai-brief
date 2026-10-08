@@ -77,6 +77,9 @@ test('every standalone test has a release route or explicit isolated PG route', 
     } else if (file === 'content-intake-csv-contract.pg.mjs') {
       assert.ok(scripts['test:intake-csv-contract:pg'].includes(file));
       assert.equal(direct.includes(file), false);
+    } else if (file === 'content-intake-runtime-closure.pg.mjs') {
+      assert.ok(scripts['test:intake-runtime-closure-contract:pg'].includes(file));
+      assert.equal(direct.includes(file), false);
     } else assert.ok(direct.includes(file), `${file} has no release gate`);
   }
 });
