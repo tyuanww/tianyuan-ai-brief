@@ -11,3 +11,5 @@
 本机核心与独立审查已完成；发现停用review POST仍声明202成功的问题，已删除四处2xx并补回归，独立复核确认关闭。见[review.json](review.json)。没有发起新外部模型审查；历史外部超时及完整审查INCOMPLETE保留。
 
 完整 `npm --prefix sites run test:release` 已通过，包含浏览器/边界/架构检查、各版本合同及依赖审计（0 vulnerabilities）。本轮没有安装或改依赖。结束后只补充验证记录和工具入口说明，执行docs:fast，不机械重跑未变化的运行检查。命令、日志指纹及原输出见[checks.json](checks.json)与[logs.json](logs.json)。输入指纹见[input-sha256.json](input-sha256.json)，PG结果见[pg-summary.json](pg-summary.json)。
+
+2026-10-08角色补充：规范新增四岗上传发布、两岗配置权限的需求；本轮仅改Markdown，机器产物、生成源、依赖和测试输入未变，复用上述原候选验证并运行docs:fast。上述结果不覆盖新增角色分工的实现，正式冻结前须补对应权限差异和四岗验收；不将本次文档补充记为运行规则已切换。
