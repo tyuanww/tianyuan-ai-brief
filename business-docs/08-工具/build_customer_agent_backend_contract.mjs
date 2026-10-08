@@ -325,7 +325,7 @@ export function buildIntakeDirectContractFiles(readSource) {
  * Not an export profile and not a product migration number. */
 export const INTAKE_SHOP_DIRECTORY_REASONS = Object.freeze([
   'SHOP_DIRECTORY_CURSOR', 'SHOP_DIRECTORY_SESSION', 'SHOP_DISPLAY_MISSING',
-  'SHOP_DIRECTORY_CHANGED', 'SHOP_DIRECTORY_EXPIRED',
+  'SHOP_DIRECTORY_CHANGED', 'SHOP_DIRECTORY_EXPIRED', 'SHOP_DIRECTORY_UNAVAILABLE',
 ]);
 export const INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS = Object.freeze({
   openapi: `${development}/openapi.v1.21.yaml`,

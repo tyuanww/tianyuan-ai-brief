@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createShopDirectoryConsumer } from './support/shop-directory-consumer.mjs';
 
 // Disposable Unix-socket PG15. Synthetic rows only; no inherited database URL.
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -16,7 +17,7 @@ const run = (name, args) => execFileSync(path.join(bin, name), args, {
 });
 assert.match(run('postgres', ['--version']), /PostgreSQL\) 15\./);
 const dir = mkdtempSync(path.join(tmpdir(), 'intake-shop-directory-'));
-const evidence = path.join(root, 'output/content-intake-shop-directory-contract');
+const evidence = path.join(root, 'output/content-intake-shop-directory-contract/lifecycle');
 mkdirSync(evidence, { recursive: true });
 const args = ['-X', '-h', dir, '-p', '55444', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1'];
 const sql = query => run('psql', [...args, '-Atc', query]).trim();
@@ -39,6 +40,7 @@ const EXPIRES = instant(120000);
 const atOffset = milliseconds => `timestamptz '${instant(milliseconds)}'`;
 const HASH = 'a'.repeat(64);
 const SESSION = 'b'.repeat(64);
+const sessionFor = id => id === 'agent' ? SESSION : createHash('sha256').update(`session-${id}`).digest('hex');
 const SIGNING_KEY = 'e'.repeat(64); // Explicit synthetic fixture, never a production secret.
 const emptyDigest = createHash('sha256').update('').digest('hex');
 let started = false;
@@ -66,6 +68,7 @@ try {
     ['steward', 'tenant-a', 'app-a', 'steward-job', 'coach', true],
     ['agent', 'tenant-a', 'app-a', 'agent-job', 'agent', true],
     ['manager', 'tenant-a', 'app-a', 'manager-job', 'coach', true],
+    ['supervisor', 'tenant-a', 'app-a', 'supervisor-job', 'coach', true],
     ['brand-agent', 'tenant-a', 'app-a', 'agent-job', 'agent', true],
     ['missing-agent', 'tenant-a', 'app-a', 'agent-job', 'agent', true],
     ['disabled-agent', 'tenant-a', 'app-a', 'agent-job', 'agent', false],
@@ -76,10 +79,13 @@ try {
   ];
   for (const [id, tenant, app, job, bindingRole, enabled] of people) {
     statements.push(`INSERT INTO backend_identity.subject_bindings(binding_id,provider,tenant,subject,user_id,subject_hash,enabled,role) VALUES (${quote(`binding-${id}`)},'synthetic',${quote(tenant)},${quote(id)},${quote(id)},${quote(HASH)},true,${quote(bindingRole)})`);
+    statements.push(`INSERT INTO backend_identity.login_requests(login_id,state_hash,client_challenge,status,issued_at,expires_at,binding_id,consumed_at) VALUES (${quote(`login-${id}`)},${quote(createHash('sha256').update(`state-${id}`).digest('hex'))},${quote('c'.repeat(43))},'ready',timestamptz '${CHECKED}',timestamptz '${UNTIL}',${quote(`binding-${id}`)},NULL)`);
+    statements.push(`INSERT INTO backend_identity.sessions(token_hash,login_id,binding_id,issued_at,expires_at) VALUES (${quote(sessionFor(id))},${quote(`login-${id}`)},${quote(`binding-${id}`)},timestamptz '${CHECKED}',timestamptz '${UNTIL}')`);
+    statements.push(`UPDATE backend_identity.login_requests SET status='consumed',consumed_at=clock_timestamp() WHERE login_id=${quote(`login-${id}`)}`);
     statements.push(`INSERT INTO content_intake.principals VALUES (${quote(id)},${quote(id)},${quote(tenant)},${quote(app)},'confirmed-synthetic',${quote(`person-${id}`)},1,0)`);
     statements.push(`INSERT INTO content_intake.principal_facts VALUES (${quote(id)},1,ARRAY['dept'],${quote(job)},${enabled},timestamptz '${CHECKED}',timestamptz '${UNTIL}',${quote(HASH)})`);
   }
-  for (const [tenant, app, job, role] of [['tenant-a', 'app-a', 'director-job', 'director'], ['tenant-a', 'app-a', 'manager-job', 'manager'], ['tenant-a', 'app-a', 'agent-job', 'agent'], ['tenant-b', 'app-b', 'director-job', 'director'], ['tenant-b', 'app-b', 'agent-job', 'agent']]) {
+  for (const [tenant, app, job, role] of [['tenant-a', 'app-a', 'director-job', 'director'], ['tenant-a', 'app-a', 'manager-job', 'manager'], ['tenant-a', 'app-a', 'supervisor-job', 'supervisor'], ['tenant-a', 'app-a', 'agent-job', 'agent'], ['tenant-a', 'app-a', 'steward-job', 'manager'], ['tenant-b', 'app-b', 'director-job', 'director'], ['tenant-b', 'app-b', 'agent-job', 'agent'], ['tenant-b', 'app-b', 'steward-job', 'manager']]) {
     statements.push(`INSERT INTO content_intake.role_rules VALUES (${quote(tenant)},${quote(app)},'dept',${quote(job)},1,${quote(role)})`);
   }
   const scopes = [
@@ -118,7 +124,9 @@ try {
   grant('expiry-product', 'query', 'expiry-agent', 'director', 'tenant-a', 'app-a', EXPIRES);
   grant('b-product', 'query', 'expiry-agent', 'director', 'tenant-a', 'app-a', GRANT_END);
   grant('tb-product', 'query', 'outsider', 'director-b', 'tenant-b', 'app-b', GRANT_END);
-  statements.push(`INSERT INTO content_intake.shop_directory_stewards VALUES ('tenant-a','app-a','steward',timestamptz '${START}'),('tenant-b','app-b','steward-b',timestamptz '${START}')`);
+  statements.push(`INSERT INTO content_intake.shop_directory_registrars VALUES ('tenant-a','app-a','director',1,timestamptz '${START}',timestamptz '${GRANT_END}',NULL),('tenant-b','app-b','director-b',1,timestamptz '${START}',timestamptz '${GRANT_END}',NULL)`);
+  statements.push(`SELECT content_intake.manage_shop_directory_steward(${quote(sessionFor('director'))},'steward',0,1,timestamptz '${GRANT_END}','synthetic registration','register-a')`);
+  statements.push(`SELECT content_intake.manage_shop_directory_steward(${quote(sessionFor('director-b'))},'steward-b',0,1,timestamptz '${GRANT_END}','synthetic registration','register-b')`);
   sql(`BEGIN; ${statements.join(';\n')}; COMMIT;`);
   checks += 1;
   const grantCount = sql('SELECT count(*) FROM content_intake.grants');
@@ -283,6 +291,153 @@ try {
   }
   assert.match(sql(`SELECT proconfig::text FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='content_intake' AND p.proname='read_shop_directory'`), /search_path=pg_catalog/);
   checks += 4;
+  // No production role or credential is created. These LOGINs live only on
+  // the disposable Unix-socket cluster; the function owner cannot log in.
+  const candidateFunctions = ['valid_shop_display_name','shop_directory_steward_guard','shop_display_guard','shop_display_current_guard','shop_directory_revision_guard','upsert_shop_display','read_shop_directory','shop_directory_event_immutable','shop_directory_session_context','manage_shop_directory_steward','rotate_shop_directory_key','shop_directory_signing_key','prepare_shop_directory_read','prepare_shop_directory_write','finish_shop_directory_transaction'];
+  sql(`CREATE ROLE directory_fn_owner NOLOGIN NOSUPERUSER NOINHERIT; CREATE ROLE directory_consumer LOGIN NOSUPERUSER NOINHERIT; CREATE ROLE directory_key_operator LOGIN NOSUPERUSER NOINHERIT;
+    GRANT USAGE ON SCHEMA content_intake,backend_identity,backend_review TO directory_fn_owner;
+    GRANT USAGE ON SCHEMA content_intake,backend_review TO directory_consumer;
+    GRANT USAGE ON SCHEMA content_intake TO directory_key_operator;
+    GRANT SELECT ON backend_identity.sessions,backend_identity.subject_bindings,content_intake.principals,content_intake.principal_facts,content_intake.role_rules,content_intake.grants,content_intake.scopes,content_intake.sources TO directory_fn_owner;
+    GRANT UPDATE(token_hash) ON backend_identity.sessions TO directory_fn_owner;
+    GRANT UPDATE(user_id) ON backend_identity.subject_bindings TO directory_fn_owner;
+    GRANT UPDATE(principal_id) ON content_intake.principals,content_intake.principal_facts TO directory_fn_owner;
+    GRANT EXECUTE ON FUNCTION backend_review.lock_content() TO directory_fn_owner,directory_consumer;
+    GRANT EXECUTE ON FUNCTION public.digest(bytea,text),public.hmac(bytea,bytea,text) TO directory_fn_owner;
+    GRANT EXECUTE ON FUNCTION content_intake.authorization_deadline(text,text,text,text,timestamptz) TO directory_fn_owner;`);
+  for (const table of ['shop_directory_stewards','shop_directory_revisions','shop_displays','shop_display_current','shop_directory_registrars','shop_directory_steward_events','shop_directory_keys','shop_directory_key_events']) sql(`ALTER TABLE content_intake.${table} OWNER TO directory_fn_owner`);
+  const signatures = sql(`SELECT p.oid::regprocedure::text FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='content_intake' AND p.proname=ANY(ARRAY[${candidateFunctions.map(quote).join(',')}])`).split('\n');
+  for (const signature of signatures) sql(`ALTER FUNCTION ${signature} OWNER TO directory_fn_owner`);
+  sql(`GRANT EXECUTE ON FUNCTION content_intake.prepare_shop_directory_read(text,text,integer),content_intake.prepare_shop_directory_write(text,text,text,bigint),content_intake.manage_shop_directory_steward(text,text,bigint,bigint,timestamptz,text,text),content_intake.finish_shop_directory_transaction(jsonb) TO directory_consumer;
+    GRANT EXECUTE ON FUNCTION content_intake.rotate_shop_directory_key(text,text,text,text,timestamptz,bigint,text,text) TO directory_key_operator;`);
+  const executeAs = (role, script) => execFileSync(path.join(bin, 'psql'), [...args, '-U', role, '-Atq'], { cwd: root, env, input: script, encoding: 'utf8', stdio: ['pipe','pipe','pipe'], maxBuffer: 1024 * 1024, timeout: 10000 });
+  const consumer = createShopDirectoryConsumer(script => executeAs('directory_consumer', script));
+  const operator = expression => JSON.parse(executeAs('directory_key_operator', `SELECT ${expression};`).trim());
+  const rotateKey = (keyId, material, until, expected, operation) => operator(`content_intake.rotate_shop_directory_key('tenant-a','app-a',${keyId === null ? 'NULL' : quote(keyId)},${material === null ? 'NULL' : quote(material)},${until === null ? 'NULL' : `${quote(until)}::timestamptz`},${expected},'synthetic key lifecycle',${quote(operation)})`);
+  const manage = overrides => consumer.manage({ sessionHash: sessionFor('director'), target: 'steward', expectedVersion: 1, targetFacts: 1, validUntil: GRANT_END, reason: 'synthetic directory stewardship', operationId: 'manage-default', ...overrides });
+  assert.equal(sql("SELECT (NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole)::text FROM pg_roles WHERE rolname='directory_fn_owner'"), 'true');
+  for (const statement of ['SELECT key_material FROM content_intake.shop_directory_keys', 'SET ROLE directory_fn_owner', "SELECT content_intake.read_shop_directory('agent','" + SESSION + "',clock_timestamp(),NULL,50,'" + SIGNING_KEY + "')", "SELECT content_intake.rotate_shop_directory_key('tenant-a','app-a','forged','" + SIGNING_KEY + "',clock_timestamp()+interval '1 minute',0,'forged','forged')"]) {
+    assert.throws(() => executeAs('directory_consumer', statement), /permission denied/); checks += 1;
+  }
+  assert.throws(() => executeAs('directory_key_operator', 'SELECT key_material FROM content_intake.shop_directory_keys'), /permission denied/);
+  assert.deepEqual(await consumer.read({ sessionHash: SESSION }), { ok: false, reason: 'SHOP_DIRECTORY_UNAVAILABLE', commit: 'rolled_back' });
+  assert.deepEqual(await consumer.read({ sessionHash: '0'.repeat(64) }), { ok: false, reason: 'SHOP_DIRECTORY_SESSION', commit: 'rolled_back' });
+  assert.deepEqual(await consumer.read({ sessionHash: SESSION, signingKey: SIGNING_KEY }), { ok: false, reason: 'SHOP_DISPLAY_INVALID', commit: 'rolled_back' });
+  checks += 4;
+  assert.equal(rotateKey('synthetic-key-1', SIGNING_KEY, GRANT_END, 0, 'key-install').version, 1);
+  // A real visible shop without a name remains the contract's precise 409
+  // reason; no partial page or internal SQL detail escapes the consumer.
+  assert.deepEqual(await consumer.read({ sessionHash: sessionFor('missing-agent') }), { ok: false, reason: 'SHOP_DISPLAY_MISSING', commit: 'rolled_back' });
+  checks += 1;
+  const currentRead = await consumer.read({ sessionHash: SESSION, limit: 1 });
+  assert.equal(currentRead.ok, true, JSON.stringify(currentRead));
+  assert.equal(currentRead.value.items[0].shopId, 'shop-a');
+  assert.equal(JSON.stringify(currentRead).includes(SESSION) || JSON.stringify(currentRead).includes(SIGNING_KEY), false);
+  assert.equal(rotateKey('synthetic-key-2', SIGNING_KEY, GRANT_END, 1, 'key-rotate-same-material').version, 2);
+  assert.deepEqual(await consumer.read({ sessionHash: SESSION, cursor: currentRead.value.nextCursor, limit: 1 }), { ok: false, reason: 'SHOP_DIRECTORY_CURSOR', commit: 'rolled_back' });
+  assert.equal(rotateKey('synthetic-key-2', SIGNING_KEY, GRANT_END, 1, 'key-rotate-same-material').version, 2);
+  assert.throws(() => rotateKey('synthetic-key-x', SIGNING_KEY, GRANT_END, 1, 'key-stale'), /SHOP_DIRECTORY_CONFLICT/);
+  assert.throws(() => rotateKey('synthetic-key-x', 'd'.repeat(64), GRANT_END, 2, 'key-rotate-same-material'), /SHOP_DIRECTORY_CONFLICT/);
+  assert.equal(sql("SELECT count(*) FROM information_schema.columns WHERE table_schema='content_intake' AND table_name='shop_directory_key_events' AND column_name='key_material'"), '0');
+  assert.equal(rotateKey(null, null, null, 2, 'key-revoke').version, 3);
+  assert.equal(sql("SELECT key_material IS NULL FROM content_intake.shop_directory_keys WHERE tenant_id='tenant-a'"), 't');
+  assert.equal((await consumer.read({ sessionHash: SESSION })).reason, 'SHOP_DIRECTORY_UNAVAILABLE');
+  rotateKey('synthetic-key-4', SIGNING_KEY, GRANT_END, 3, 'key-reinstall');
+  rejects("INSERT INTO content_intake.shop_directory_keys VALUES ('bad','bad',1,'bad',NULL,clock_timestamp(),clock_timestamp()+interval '1 minute')", /check constraint/);
+  rejects("SELECT content_intake.finish_shop_directory_transaction('{}')", /SHOP_DISPLAY_INVALID/);
+  checks += 12;
+  // A manager needs explicit registrar bootstrap; role or single-shop business
+  // grants cannot confer tenant-wide maintenance registration.
+  assert.equal((await manage({ sessionHash: sessionFor('manager'), operationId: 'no-bootstrap' })).reason, 'SHOP_DIRECTORY_REGISTRAR_REQUIRED');
+  sql(`INSERT INTO content_intake.shop_directory_registrars VALUES ('tenant-a','app-a','manager',1,timestamptz '${START}',timestamptz '${GRANT_END}',NULL),('tenant-a','app-a','supervisor',1,timestamptz '${START}',timestamptz '${GRANT_END}',NULL)`);
+  assert.equal((await manage({ sessionHash: sessionFor('supervisor'), operationId: 'supervisor-denied' })).reason, 'SHOP_DIRECTORY_REGISTRAR_REQUIRED');
+  assert.equal((await manage({ target: 'steward-b', operationId: 'cross-tenant-target' })).reason, 'SHOP_DIRECTORY_STEWARD_REQUIRED');
+  assert.equal((await manage({ target: 'agent', operationId: 'agent-target-denied' })).reason, 'SHOP_DIRECTORY_STEWARD_REQUIRED');
+  assert.equal((await manage({ target: 'supervisor', operationId: 'supervisor-target-denied' })).reason, 'SHOP_DIRECTORY_STEWARD_REQUIRED');
+  checks+=2;
+  assert.equal((await manage({ expectedVersion: 0, operationId: 'stale-version' })).reason, 'SHOP_DIRECTORY_CONFLICT');
+  assert.equal((await manage({ targetFacts: 999, operationId: 'stale-target' })).reason, 'SHOP_DIRECTORY_STEWARD_REQUIRED');
+  const rotated = await manage({ sessionHash: sessionFor('manager'), target: 'manager', operationId: 'rotate-steward' });
+  assert.equal(rotated.ok, true, JSON.stringify(rotated)); assert.equal(rotated.value.version, 2);
+  assert.equal((await consumer.write({ sessionHash: sessionFor('steward'), shopId: 'lifecycle-name', displayName: '失效维护人', expectedRevision: revisionOf('tenant-a','app-a') })).reason, 'SHOP_DIRECTORY_STEWARD_REQUIRED');
+  assert.equal((await consumer.write({ sessionHash: sessionFor('manager'), shopId: 'lifecycle-name', displayName: '合成维护目录', expectedRevision: revisionOf('tenant-a','app-a') })).ok, true);
+  assert.equal((await manage({ target: null, targetFacts: null, validUntil: null, expectedVersion: 2, operationId: 'revoke-steward' })).value.version, 3);
+  assert.equal((await consumer.write({ sessionHash: sessionFor('manager'), shopId: 'lifecycle-name', displayName: '撤销后', expectedRevision: revisionOf('tenant-a','app-a') })).reason, 'SHOP_DIRECTORY_STEWARD_REQUIRED');
+  const restored = await manage({ expectedVersion: 3, operationId: 'restore-steward' });
+  assert.equal(restored.value.version, 4);
+  assert.deepEqual(await manage({ expectedVersion: 3, operationId: 'restore-steward' }), restored);
+  assert.equal((await manage({ target:'manager', expectedVersion:3, operationId:'restore-steward' })).reason, 'SHOP_DIRECTORY_CONFLICT');
+  assert.equal(sql("SELECT count(*) FROM content_intake.shop_directory_steward_events WHERE tenant_id='tenant-a'"), '4');
+  rejects("UPDATE content_intake.shop_directory_steward_events SET reason='rewritten'", /SHOP_DISPLAY_IMMUTABLE/);
+  // Real commit followed by synthetic reply loss. Retry consults immutable audit,
+  // does not perform the CAS transition again, and never declares rollback.
+  const lostReply = createShopDirectoryConsumer(script => { const stdout=executeAs('directory_consumer',script); throw Object.assign(new Error('synthetic reply lost'), {stdout}); });
+  const unknownRequest={sessionHash:sessionFor('director'),target:'manager',expectedVersion:4,targetFacts:1,validUntil:GRANT_END,reason:'synthetic reply loss',operationId:'unknown-registration'};
+  assert.deepEqual(await lostReply.manage(unknownRequest), {ok:false,reason:'COMMIT_UNKNOWN',commit:'unknown'});
+  const recovered=await consumer.manage(unknownRequest); assert.equal(recovered.ok,true); assert.equal(recovered.value.version,5);
+  assert.equal(sql("SELECT count(*) FROM content_intake.shop_directory_steward_events WHERE tenant_id='tenant-a'"), '5');
+  await manage({expectedVersion:5,operationId:'restore-after-unknown'});
+  // Before-COMMIT deadline failure rolls back the actual preceding name write.
+  const membershipUntil=new Date(Date.now()+500).toISOString();
+  assert.equal((await manage({expectedVersion:6,validUntil:membershipUntil,operationId:'short-membership'})).value.version,7);
+  const delayed = createShopDirectoryConsumer(script => executeAs('directory_consumer',script.replace('SELECT content_intake.finish_shop_directory_transaction', 'SELECT pg_sleep(0.7) AS delay \\gset\nSELECT content_intake.finish_shop_directory_transaction')));
+  const beforeLate=revisionOf('tenant-a','app-a');
+  assert.equal((await delayed.write({sessionHash:sessionFor('steward'),shopId:'must-rollback',displayName:'不能提交',expectedRevision:beforeLate})).reason,'SHOP_DIRECTORY_EXPIRED');
+  assert.equal(revisionOf('tenant-a','app-a'),beforeLate);
+  assert.equal(sql("SELECT count(*) FROM content_intake.shop_displays WHERE shop_id='must-rollback'"),'0');
+  await manage({expectedVersion:7,operationId:'restore-after-deadline'});
+  // Key expiry caps the issued cursor and is rechecked at transaction end.
+  const keyUntil=new Date(Date.now()+500).toISOString(); rotateKey('synthetic-key-5',SIGNING_KEY,keyUntil,4,'short-key');
+  const keyBound=await consumer.read({sessionHash:SESSION,limit:1}); assert.equal(keyBound.ok,true); assert.equal(Date.parse(keyBound.value.validUntil),Date.parse(keyUntil));
+  assert.equal((await delayed.read({sessionHash:SESSION,limit:1})).reason,'SHOP_DIRECTORY_UNAVAILABLE');
+  rotateKey('synthetic-key-6',SIGNING_KEY,GRANT_END,5,'restore-key');
+  checks += 28;
+
+  // Registered name maintenance is also a two-role operation, never a new
+  // write capability for a normal seat after a role change.
+  await manage({expectedVersion:8,target:'manager',targetFacts:1,operationId:'role-change-target'});
+  sql(`INSERT INTO content_intake.principal_facts VALUES ('manager',2,ARRAY['dept'],'agent-job',true,timestamptz '${CHECKED}',timestamptz '${UNTIL}',${quote(HASH)}); UPDATE content_intake.principals SET current_facts_version=2,revocation_generation=revocation_generation+1 WHERE principal_id='manager'`);
+  assert.equal((await consumer.write({sessionHash:sessionFor('manager'),shopId:'role-denied',displayName:'换岗后',expectedRevision:revisionOf('tenant-a','app-a')})).reason,'SHOP_DIRECTORY_STEWARD_REQUIRED');
+  assert.equal((await manage({expectedVersion:9,target:'manager',targetFacts:2,operationId:'agent-cannot-be-maintainer'})).reason,'SHOP_DIRECTORY_STEWARD_REQUIRED');
+  sql(`INSERT INTO content_intake.principal_facts VALUES ('manager',3,ARRAY['dept'],'manager-job',true,timestamptz '${CHECKED}',timestamptz '${UNTIL}',${quote(HASH)}); UPDATE content_intake.principals SET current_facts_version=3,revocation_generation=revocation_generation+1 WHERE principal_id='manager'`);
+  await manage({expectedVersion:9,operationId:'restore-after-role-change'});
+  // Privileged fixture mutation simulates an in-transaction policy change, while
+  // the actual consumer itself has no role-rule write privilege.
+  const policyChanged=createShopDirectoryConsumer(script=>execFileSync(path.join(bin,'psql'),[...args,'-Atq'],{cwd:root,env,input:script.replace('SELECT content_intake.finish_shop_directory_transaction',"UPDATE content_intake.role_rules SET policy_version=2,role='agent' WHERE tenant_id='tenant-a' AND app_id='app-a' AND department_id='dept' AND job_id='steward-job';\nSELECT content_intake.finish_shop_directory_transaction"),encoding:'utf8',stdio:['pipe','pipe','pipe']}));
+  assert.equal((await policyChanged.write({sessionHash:sessionFor('steward'),shopId:'policy-must-rollback',displayName:'策略改变',expectedRevision:revisionOf('tenant-a','app-a')})).reason,'SHOP_DIRECTORY_CHANGED');
+  assert.equal(sql("SELECT count(*) FROM content_intake.shop_displays WHERE shop_id='policy-must-rollback'"),'0');
+  checks+=4;
+  const utcConsumer=createShopDirectoryConsumer(script=>executeAs('directory_consumer',"SET TIME ZONE 'UTC';\n"+script));
+  assert.deepEqual(await utcConsumer.manage(unknownRequest),recovered);
+  // Revoked or elapsed sessions cannot be substituted with a still-current fact.
+  sql(`UPDATE backend_identity.sessions SET revoked_at=clock_timestamp() WHERE token_hash=${quote(sessionFor('manager'))}`);
+  assert.equal((await consumer.read({sessionHash:sessionFor('manager')})).reason,'SHOP_DIRECTORY_SESSION');
+  sql(`UPDATE backend_identity.sessions SET expires_at=clock_timestamp() WHERE token_hash=${quote(sessionFor('outsider'))}`);
+  assert.equal((await consumer.read({sessionHash:sessionFor('outsider')})).reason,'SHOP_DIRECTORY_SESSION');
+  // Global content lock precedes session validation: waiting cannot borrow the
+  // session's validity from before the wait. Holder uses the same lock function.
+  sql(`UPDATE backend_identity.sessions SET expires_at=clock_timestamp()+interval '0.7 seconds' WHERE token_hash=${quote(SESSION)}`);
+  const globalBlocker=spawn(path.join(bin,'psql'),[...args,'-Atc',"SET application_name='shop-global-lock-probe'; BEGIN; SELECT backend_review.lock_content(); SELECT pg_sleep(1.1); COMMIT;"],{cwd:root,env,stdio:['ignore','ignore','pipe']});
+  const globalClosed=new Promise((resolve,reject)=>{globalBlocker.once('error',reject);globalBlocker.once('close',code=>code===0?resolve():reject(new Error(`global lock exit ${code}`)));});
+  let globalLocked=false;
+  for(let attempt=0;attempt<50;attempt+=1){if(sql("SELECT count(*) FROM pg_stat_activity WHERE application_name='shop-global-lock-probe' AND wait_event='PgSleep'")==='1'){globalLocked=true;break;}await new Promise(resolve=>setTimeout(resolve,10));}
+  assert.equal(globalLocked,true);
+  assert.equal((await consumer.read({sessionHash:SESSION})).reason,'SHOP_DIRECTORY_SESSION');
+  await globalClosed;
+  sql(`UPDATE backend_identity.sessions SET expires_at=timestamptz '${UNTIL}' WHERE token_hash=${quote(SESSION)}`);
+  sql(`UPDATE content_intake.shop_directory_registrars SET version=2,revoked_at=clock_timestamp() WHERE tenant_id='tenant-a' AND registrar_id='director'`);
+  assert.equal((await manage({expectedVersion:10,operationId:'revoked-registrar'})).reason,'SHOP_DIRECTORY_REGISTRAR_REQUIRED');
+  sql(`UPDATE content_intake.shop_directory_registrars SET version=3,revoked_at=NULL WHERE tenant_id='tenant-a' AND registrar_id='director'`);
+  // Synthetic storage stall after key validation: the expired write and audit
+  // roll back together, preserving the old current version/material.
+  sql("CREATE FUNCTION content_intake.synthetic_key_delay() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.7); RETURN NEW; END $$; CREATE TRIGGER synthetic_key_delay BEFORE UPDATE ON content_intake.shop_directory_keys FOR EACH ROW EXECUTE FUNCTION content_intake.synthetic_key_delay()");
+  assert.throws(()=>rotateKey('synthetic-key-expired','f'.repeat(64),new Date(Date.now()+300).toISOString(),6,'key-write-expired'),/SHOP_DIRECTORY_EXPIRED/);
+  sql('DROP TRIGGER synthetic_key_delay ON content_intake.shop_directory_keys; DROP FUNCTION content_intake.synthetic_key_delay()');
+  assert.equal(sql("SELECT version FROM content_intake.shop_directory_keys WHERE tenant_id='tenant-a'"),'6');
+  assert.equal(sql("SELECT count(*) FROM content_intake.shop_directory_key_events WHERE operation_id='key-write-expired'"),'0');
+  assert.equal(sql("SELECT key_material='"+SIGNING_KEY+"' FROM content_intake.shop_directory_keys WHERE tenant_id='tenant-a'"),'t');
+  checks+=10;
+
   // Steward identity and facts are current authorization, never perpetual membership.
   sql(`UPDATE backend_identity.subject_bindings SET enabled=false WHERE user_id='steward'`);
   rejects(`SELECT content_intake.upsert_shop_display('steward','tenant-a','app-a','shop-a','停用更名',${revisionOf('tenant-a', 'app-a')})`, /SHOP_DIRECTORY_STEWARD_REQUIRED/);

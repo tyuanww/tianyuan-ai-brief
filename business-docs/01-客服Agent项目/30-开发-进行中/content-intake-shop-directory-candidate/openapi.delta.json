@@ -4,7 +4,8 @@
     "SHOP_DIRECTORY_SESSION",
     "SHOP_DISPLAY_MISSING",
     "SHOP_DIRECTORY_CHANGED",
-    "SHOP_DIRECTORY_EXPIRED"
+    "SHOP_DIRECTORY_EXPIRED",
+    "SHOP_DIRECTORY_UNAVAILABLE"
   ],
   "paths": {
     "/v1/intake/shop-directory": {
@@ -92,6 +93,16 @@
           },
           "409": {
             "description": "SHOP_DISPLAY_MISSING、SHOP_DIRECTORY_CHANGED 或 SHOP_DIRECTORY_EXPIRED。不返回任何店铺。调用方丢弃已读页；CHANGED 或 EXPIRED 后从第一页重读，MISSING 时不得用店铺编号代替名称。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "服务端目录 key 未配置、已撤销或已到期。reason=SHOP_DIRECTORY_UNAVAILABLE。不返回条目或配置细节。",
             "content": {
               "application/json": {
                 "schema": {

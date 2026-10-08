@@ -1,0 +1,300 @@
+{
+  "status": "DRAFT_NOT_FROZEN",
+  "baseCommit": "70dab62ec1c4e399390192a0e069a30afd5c38b1",
+  "scope": "Synthetic directory stewardship/key lifecycle and trusted transaction consumer; no real data/secret/runtime ACL",
+  "environment": {
+    "node": "v24.19.0",
+    "postgres": "15.18",
+    "platform": "macOS arm64",
+    "dependencyInstall": false
+  },
+  "inputs": {
+    "business-docs/01-客服Agent项目/30-开发-进行中/18-P2店铺目录合同候选.md": "eb79fcb4475b3b4e124157e7f80ebf420083344de61f56f2c4646728ddf37c10",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-shop-directory-candidate/openapi.delta.json": "2c68e15fecbe6bf2a2d24cc089fb5d5254d9dc2abc48204f981d160fdfc9f622",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-shop-directory-candidate/storage.delta.sql": "73254ecac5144e7416e87177e1443944579cbc82ec93ed89273e98e4d1d5d9fc",
+    "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.21.yaml": "184d3e2dd64fd3bcb8dfb1d57fa328e088296ccd5bcf535053ecdd6f51c468e4",
+    "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.23.sql": "2bfb69df3b83ead682cd7a8411e3e123b8d57a6879e4f0c0d34b540196857c0a",
+    "business-docs/08-工具/build_customer_agent_backend_contract.mjs": "a8671fd2cbc99572f524452f6b50098e30bdfb4800c27a286b042c8663613ad6",
+    "sites/tests/content-intake-shop-directory-contract.pg.mjs": "39b3925d250cbcf44b5eb50f596109fc26cf2e5692a003305438bb8207911a8d",
+    "sites/tests/content-intake-shop-directory-contract.test.mjs": "ecd4ba958bec5ea6a86f9affba5d20df60f1fbeb43d11a9a5802c8f91da0fd55",
+    "sites/tests/support/shop-directory-consumer.mjs": "80f85548d23c1d461a7dde78cd269f0b87187d708ef13c313101a0ad83c9e608",
+    "sites/package.json": "d5dbe7b7a724ff01648cb972798d7d8e0ccff34eebb39adc75b097ae55500c5e",
+    "sites/package-lock.json": "57ec56e0c415b56694b64f339d30ea001d77b7b0e4142630fd49cb0ff14039e0",
+    "sites/scripts/quality-plan.mjs": "31a74a8e3680bb38d7bc3c5c3b6fd9e928b9064244d18b8d2b87646a9d8ca0a5",
+    "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.20.yaml": "1513fe499773c83f4a2b9f0ca8e3a5f7369638f72dc1d18a291235093cfc034d",
+    "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.22.sql": "c5e4896e8ed1ff587e23a70723bd9d81c056ba65561cd9d94963aa6b5f1ae3ce"
+  },
+  "logDirectory": "output/content-intake-shop-directory-contract/lifecycle",
+  "logs": {
+    "unit-final.log": "7aeb65b076840a0962740161ea485b6aba52dafba898d2c2a13efbbe0349ac5d",
+    "before-missing-reason-install.log": "cf63a6bd1e19c008da1332a8fa0f1dd5a5afcfe9f1963415ba25a8f7dc7c7ca1",
+    "release-inputs.json": "e93facc4441cd2ad0980612277f93ca92cc5309e2fae4d7f1ff50f9d22f2e8be",
+    "pg-summary.json": "b76a0edd8bb80a669f3c6684ccf67b361656b3cda782e07dea535b048e39e5c0",
+    "before-missing-reason-test-release.log": "859073cdeedaca85c007e35a2b0dee8f0af6246f63367aae9e6b4ba9cfdba72b",
+    "before-missing-reason-inputs.json": "fa62ccdde87da4f3c8ac21312938e97c5c7bf7a22fa44ebc2a2bc7688db0e6d2",
+    "before-missing-reason-pg-summary.json": "316236b4f0355e49b33f7466d3f9234066094bd102302d3b7d50ada349949094",
+    "test-release.log": "8c566495fe446d49e71c9f2fd588e8405c4f645a497cd85ef24e82e2a2c1485d",
+    "c-lifecycle-role-pg.log": "3e75a4af83d667ac48036a7b1bcf23e60b8f2e85da83f45b0d21cda7f0409802",
+    "c-lifecycle-role-pg2.log": "717450580c39dd08d997d980c63a70be6abae0836a875fa6606d6e6bc6a2c6cb",
+    "install.log": "cf63a6bd1e19c008da1332a8fa0f1dd5a5afcfe9f1963415ba25a8f7dc7c7ca1",
+    "pg-final.log": "cdf70036e269c48b6072a6ab3e517f0344f4af41ccc319e8e78d206e7f449aba",
+    "docs-final.log": "3328f7bafca83eb385ef92b2eb22b9a80988632592f492bb519fea1ce8638705"
+  },
+  "validation": {
+    "pg15": {
+      "checks": 208,
+      "exitCode": 0,
+      "command": "PG_BIN=<local PostgreSQL 15 bin> node sites/tests/content-intake-shop-directory-contract.pg.mjs",
+      "faultInjection": "Disposable DB only: clock/HMAC/storage delays and policy change; not production performance."
+    },
+    "contractUnit": {
+      "tests": 5,
+      "exitCode": 0,
+      "command": "npm --prefix sites run test:intake-shop-directory-contract"
+    },
+    "release": {
+      "command": "npm --prefix sites run test:release",
+      "exitCode": 0,
+      "stableInputs": true,
+      "steps": [
+        {
+          "name": "test",
+          "seconds": 108.16,
+          "exitCode": 0
+        },
+        {
+          "name": "test:boundary-integration",
+          "seconds": 37.98,
+          "exitCode": 0
+        },
+        {
+          "name": "test:layout-ui",
+          "seconds": 3.31,
+          "exitCode": 0
+        },
+        {
+          "name": "test:ui",
+          "seconds": 69.01,
+          "exitCode": 0
+        },
+        {
+          "name": "test:arch-board-ui",
+          "seconds": 12.12,
+          "exitCode": 0
+        },
+        {
+          "name": "test:business",
+          "seconds": 34.28,
+          "exitCode": 0
+        },
+        {
+          "name": "test:customer-agent-python-tools",
+          "seconds": 3.18,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:openapi",
+          "seconds": 1.21,
+          "exitCode": 0
+        },
+        {
+          "name": "check:owner-contract",
+          "seconds": 0.12,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:owner-openapi",
+          "seconds": 0.77,
+          "exitCode": 0
+        },
+        {
+          "name": "test:backend-candidate",
+          "seconds": 0.37,
+          "exitCode": 0
+        },
+        {
+          "name": "check:backend-contract",
+          "seconds": 18.01,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:backend-openapi",
+          "seconds": 6.68,
+          "exitCode": 0
+        },
+        {
+          "name": "test:ops-loop-candidate",
+          "seconds": 0.37,
+          "exitCode": 0
+        },
+        {
+          "name": "check:ops-loop-contract",
+          "seconds": 0.12,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:ops-loop-openapi",
+          "seconds": 0.77,
+          "exitCode": 0
+        },
+        {
+          "name": "test:coach-publish-candidate",
+          "seconds": 0.27,
+          "exitCode": 0
+        },
+        {
+          "name": "check:coach-publish-contract",
+          "seconds": 0.12,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:coach-publish-openapi",
+          "seconds": 0.78,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-contract",
+          "seconds": 26.07,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-contract",
+          "seconds": 0.16,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-openapi",
+          "seconds": 0.99,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-usage-contract",
+          "seconds": 36.87,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-usage-contract",
+          "seconds": 0.17,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-usage-openapi",
+          "seconds": 1.68,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-quality-contract",
+          "seconds": 48.45,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-quality-contract",
+          "seconds": 0.2,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-quality-openapi",
+          "seconds": 3.09,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-management-contract",
+          "seconds": 68.93,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-management-contract",
+          "seconds": 0.25,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-management-openapi",
+          "seconds": 0.91,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-direct-contract",
+          "seconds": 78.07,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-direct-contract",
+          "seconds": 0.21,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-direct-openapi",
+          "seconds": 0.98,
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-shop-directory-contract",
+          "seconds": 0.56,
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-shop-directory-contract",
+          "seconds": 0.15,
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-shop-directory-openapi",
+          "seconds": 0.78,
+          "exitCode": 0
+        },
+        {
+          "name": "test:sql-grammar",
+          "seconds": 0.35,
+          "exitCode": 0
+        },
+        {
+          "name": "test:architecture-contract",
+          "seconds": 0.26,
+          "exitCode": 0
+        },
+        {
+          "name": "check:arch-diagrams",
+          "seconds": 2.0,
+          "exitCode": 0
+        },
+        {
+          "name": "audit:deps",
+          "seconds": 1.0,
+          "exitCode": 0
+        }
+      ],
+      "note": "Final source, contract, tests and dependency bytes stayed stable for this complete run. Verification report/this evidence JSON are written afterward; docs-fast follows."
+    },
+    "previousRelease": {
+      "exitCode": 0,
+      "log": "before-missing-reason-test-release.log",
+      "validForFinalConsumer": false,
+      "reason": "Final run follows a real consumer SHOP_DISPLAY_MISSING error-mapping fix and PG regression."
+    },
+    "docsFast": {
+      "exitCode": 0,
+      "command": "npm --prefix sites run test:docs:fast",
+      "note": "Run after verification report and lifecycle evidence were added."
+    }
+  },
+  "externalReview": "INCOMPLETE",
+  "frozenOrExported": false,
+  "productionEnabled": false,
+  "remaining": {
+    "contractDecisions": [
+      "adopt registrar/steward protocol",
+      "arbitrate candidate versions and purpose ACL with runtime candidate",
+      "formal freeze/export/intake and product consumer integration"
+    ],
+    "realRuntimeInputs": [
+      "real tenant/app registrar and steward identities and bootstrap owner",
+      "business-confirmed shop display names",
+      "real key custody, injection, validity/rotation policy and protected logging",
+      "production runtime accounts/ACL"
+    ],
+    "note": "Real identities and secrets block real operation, not review or freezing a synthetic protocol."
+  },
+  "postReleaseReports": {
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-shop-directory-candidate/verification.md": "02519a9c63685e70a55322cff690cc3c0939f964c5733a0563be7c53029412af"
+  }
+}

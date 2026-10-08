@@ -1,6 +1,20 @@
 # 店铺目录候选验证
 
-## 2026-10-08 主 Agent 回收修复
+## 2026-10-08 维护人、私有 key 与可信消费者补齐
+
+本轮仍为 DRAFT，未冻结、未 export、未 intake。维护人登记／撤销／轮换已具备实际 CAS、期限、审计与同操作 ID 重放；操作人和目标维护人均须当前唯一 director/manager，再叠加显式 tenant/app 登记，不由岗位自动授权。名称管理不写业务 grant。真实维护人名单只阻塞真实运行，不是合成协议审阅／冻结的技术前置。
+
+签名 key 已有独立受限注入、版本轮换、有效期、撤销清空与不可变元数据审计；新 keyId 即使重用合成材料也拒绝旧游标。只有合成 key，未创建真实 secret。合成消费者在同一事务遵守全局内容锁→真实会话／事实→目录操作→最终截止→COMMIT，只在成功提交后返回，未知管理提交使用原操作 ID 恢复。实际非 owner LOGIN 覆盖 read/write/manage 与独立 key 操作；未给既有产品账号开权限。
+
+最终 PG15 **208/208**、Node 合同 **5/5**、完整 `npm --prefix sites run test:release` **41 步全部 exit 0，最终 EXIT:0**。本轮最终源／合同／测试／依赖输入在完整 release 运行期间保持不变，结束后逐项比较 SHA-256，未沿用旧运行覆盖改动。冻结 OpenAPI 1.20.0 / schema.v1.22 原字节不变。OpenAPI lint 仍有 23 条既有 warning，没有 error。
+
+覆盖真实会话撤销／到期、全局锁等待后重查、维护人换岗失效、最终岗位与截止守卫回滚、缺名不返回部分页且保留 SHOP_DISPLAY_MISSING、普通角色不能取 key／越过函数／SET ROLE、同材料版本轮换、key 写入跨截止回滚、未知管理提交恢复和时区无关重放。故障注入仅发生在一次性合成 PG，不是生产性能或真实飞书证据。
+
+最终结果及输入／日志哈希见 [lifecycle-checks.json](lifecycle-checks.json)，日志目录是 gitignore 的 `output/content-intake-shop-directory-contract/lifecycle/`。较早完整 release 已通过，但随后发现消费者漏映射 SHOP_DISPLAY_MISSING；该修复前日志与输入独立保留为 `before-missing-reason-*`，不当作最终消费者证据。历史 recovery 证据保持原内容。
+
+尚待正式决定的是采用该候选协议、与用途 ACL 的版本仲裁及冻结／export／intake；真实名单、正式名称、secret 保管注入／日志和运行账号另属真实运行条件。当前没有生产／产品消费者接入，完整外部 `/review` 保持 **INCOMPLETE**，没有新一轮外部审核。
+
+## 2026-10-08 提交 70dab62 的历史回收修复证据
 
 回收实际 PG 复现旧游标暴露会话哈希、两字段联动篡改、延长过期截止、无效名称和停用维护人更名。原复现为 `/tmp/recover-c-probe.log`，冻结旧字节未改。新候选改用独立服务端私有 HMAC key，仅合成 fixture；读写在锁后检查真实时钟和当前身份事实，SQL/JSONSchema 名称规则一致，合法 Unicode 最大页提高为 128 KiB。
 

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import Ajv from 'ajv/dist/2020.js';
 import { releaseSteps } from '../scripts/quality-plan.mjs';
+import { createShopDirectoryConsumer } from './support/shop-directory-consumer.mjs';
 import {
   buildIntakeDirectContractFiles,
   buildIntakeShopDirectoryContractFiles,
@@ -138,4 +139,27 @@ test('generator rejects a second verb, a dropped route, a changed reason, an ext
   assert.throws(() => build({
     [INTAKE_SHOP_DIRECTORY_SOURCES.storage]: Buffer.from('CREATE OR REPLACE FUNCTION content_intake.authorization_deadline() RETURNS int LANGUAGE sql AS $$ SELECT 1 $$;'),
   }), /authorization_deadline/);
+});
+
+
+test('trusted synthetic consumer rejects injected authority/key fields before any database call', async () => {
+  let calls=0; const consumer=createShopDirectoryConsumer(async()=>{calls+=1;return '';});
+  const sessionHash='b'.repeat(64);
+  for(const request of [{sessionHash,signingKey:'secret'},{sessionHash,principal:'director'},{sessionHash,tenant:'tenant-b'},{sessionHash:[sessionHash]},{sessionHash,cursor:[]},{sessionHash,limit:101}]) {
+    assert.deepEqual(await consumer.read(request),{ok:false,reason:'SHOP_DISPLAY_INVALID',commit:'rolled_back'});
+  }
+  assert.deepEqual(await consumer.manage({sessionHash,target:'agent',expectedVersion:0,targetFacts:1,validUntil:'bad',reason:'synthetic',operationId:'request'}),{ok:false,reason:'SHOP_DISPLAY_INVALID',commit:'rolled_back'});
+  assert.equal(calls,0);
+});
+
+test('consumer releases only post-COMMIT values and keeps uncertain or malformed replies unknown', async () => {
+  const request={sessionHash:'b'.repeat(64)};
+  const before=createShopDirectoryConsumer(async()=>{throw {stdout:'',stderr:'ERROR: SHOP_DIRECTORY_SESSION\nprivate diagnostic'};});
+  assert.deepEqual(await before.read(request),{ok:false,reason:'SHOP_DIRECTORY_SESSION',commit:'rolled_back'});
+  const after=createShopDirectoryConsumer(async()=>{throw {stdout:'__SHOP_DIRECTORY_COMMITTING__\n',stderr:'private diagnostic'};});
+  assert.deepEqual(await after.read(request),{ok:false,reason:'COMMIT_UNKNOWN',commit:'unknown'});
+  for(const output of ['', '{"items":[]}', '__SHOP_DIRECTORY_COMMITTING__\nnot-json']) {
+    assert.deepEqual(await createShopDirectoryConsumer(async()=>output).read(request),{ok:false,reason:'COMMIT_UNKNOWN',commit:'unknown'});
+  }
+  assert.deepEqual(await createShopDirectoryConsumer(async()=> '__SHOP_DIRECTORY_COMMITTING__\n{"items":[]}\n').read(request),{ok:true,value:{items:[]}});
 });
