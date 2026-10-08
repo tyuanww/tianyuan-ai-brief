@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -28,17 +28,22 @@ const rejects = (query, pattern) => {
   });
   checks += 1;
 };
-const AT = "timestamptz '2026-10-08 00:00:00+00'";
-const CHECKED = '2026-10-07 23:59:00+00';
-const UNTIL = '2026-10-08 00:04:00+00';
-const START = '2026-10-07 00:00:00+00';
-const GRANT_END = '2026-10-08 02:00:00+00';
+const anchor = Date.now();
+const instant = milliseconds => new Date(anchor + milliseconds).toISOString();
+const AT = `timestamptz '${instant(0)}'`;
+const CHECKED = instant(-60000);
+const UNTIL = instant(240000);
+const START = instant(-86400000);
+const GRANT_END = instant(7200000);
+const EXPIRES = instant(120000);
+const atOffset = milliseconds => `timestamptz '${instant(milliseconds)}'`;
 const HASH = 'a'.repeat(64);
 const SESSION = 'b'.repeat(64);
+const SIGNING_KEY = 'e'.repeat(64); // Explicit synthetic fixture, never a production secret.
 const emptyDigest = createHash('sha256').update('').digest('hex');
 let started = false;
 let checks = 0;
-const readCall = (principal, session, when, cursor, limit) => `content_intake.read_shop_directory(${quote(principal)},${quote(session)},${when},${cursor == null ? 'NULL' : quote(cursor)},${limit == null ? 'NULL' : String(limit)})`;
+const readCall = (principal, session, when, cursor, limit) => `content_intake.read_shop_directory(${quote(principal)},${quote(session)},${when},${cursor == null ? 'NULL' : quote(cursor)},${limit == null ? 'NULL' : String(limit)},${quote(SIGNING_KEY)})`;
 const readDirectory = (principal, cursor = null, limit = 50, session = SESSION, when = AT) => JSON.parse(sql(`SELECT ${readCall(principal, session, when, cursor, limit)}`));
 const upsert = (actor, tenant, app, shop, name, expected) => JSON.parse(sql(
   `SELECT content_intake.upsert_shop_display(${quote(actor)},${quote(tenant)},${quote(app)},${quote(shop)},${quote(name)},${expected == null ? 'NULL' : String(expected)})`,
@@ -110,7 +115,7 @@ try {
   grant('brand-product', 'query', 'brand-agent', 'director', 'tenant-a', 'app-a', GRANT_END);
   grant('b-product', 'query', 'disabled-agent', 'director', 'tenant-a', 'app-a', GRANT_END);
   grant('b-product', 'publish', 'manager', 'director', 'tenant-a', 'app-a', GRANT_END);
-  grant('expiry-product', 'query', 'expiry-agent', 'director', 'tenant-a', 'app-a', '2026-10-08 00:02:00+00');
+  grant('expiry-product', 'query', 'expiry-agent', 'director', 'tenant-a', 'app-a', EXPIRES);
   grant('b-product', 'query', 'expiry-agent', 'director', 'tenant-a', 'app-a', GRANT_END);
   grant('tb-product', 'query', 'outsider', 'director-b', 'tenant-b', 'app-b', GRANT_END);
   statements.push(`INSERT INTO content_intake.shop_directory_stewards VALUES ('tenant-a','app-a','steward',timestamptz '${START}'),('tenant-b','app-b','steward-b',timestamptz '${START}')`);
@@ -119,7 +124,7 @@ try {
   const grantCount = sql('SELECT count(*) FROM content_intake.grants');
 
   rejects(`SELECT content_intake.upsert_shop_display('steward','tenant-a','app-a','shop-a','合成同名店',0)`, /SHOP_DIRECTORY_CONFLICT/);
-  for (const name of ['', '   ', ' 合成', '合成 ', '名'.repeat(257)]) {
+  for (const name of ['', '   ', ' 合成', '合成 ', '\t', '名\n称', '\u00a0合成', '合成\u3000', '合成\u2028店', '\ufeff合成', '名'.repeat(257)]) {
     rejects(`SELECT content_intake.upsert_shop_display('steward','tenant-a','app-a','shop-a',${quote(name)},NULL)`, /SHOP_DISPLAY_INVALID/);
   }
   assert.equal(revisionOf('tenant-a', 'app-a'), null);
@@ -178,23 +183,34 @@ try {
   assert.equal(page2.validUntil, page3.validUntil);
   checks += 4;
   const parts = page1.nextCursor.split('.');
+  assert.equal(page1.nextCursor.includes(SESSION), false);
+  assert.equal(page1.nextCursor.startsWith('sd2.'), true);
+  const forgedBoth = [...parts]; forgedBoth[6] = '2'; forgedBoth[8] = 'shop-b';
+  rejects(`SELECT ${readCall('agent', SESSION, AT, forgedBoth.join('.'), 1)}`, /SHOP_DIRECTORY_CURSOR/);
+  const forgedDeadline = [...parts]; forgedDeadline[5] = String(BigInt(forgedDeadline[5]) + 60000000n);
+  rejects(`SELECT ${readCall('agent', SESSION, AT, forgedDeadline.join('.'), 1)}`, /SHOP_DIRECTORY_CURSOR/);
+  rejects(`SELECT ${readCall('agent', SESSION, AT, page1.nextCursor, 2)}`, /SHOP_DIRECTORY_CURSOR/);
+  const forgedPayload = forgedDeadline.slice(0, -1).join('.');
+  const clientKnownHashMac = sql(`SELECT encode(hmac(convert_to(jsonb_build_array('agent','tenant-a','app-a',${quote(SESSION)},${quote(forgedPayload)})::text,'UTF8'),decode(${quote(SESSION)},'hex'),'sha256'),'hex')`);
+  rejects(`SELECT ${readCall('agent', SESSION, AT, `${forgedPayload}.${clientKnownHashMac}`, 1)}`, /SHOP_DIRECTORY_CURSOR/);
+  checks += 2;
   const forgedShop = [...parts];
   forgedShop[8] = 'shop-b';
   rejects(`SELECT ${readCall('agent', SESSION, AT, forgedShop.join('.'), 1)}`, /SHOP_DIRECTORY_CURSOR/);
   const forgedOrdinal = [...parts];
-  forgedOrdinal[7] = '2';
+  forgedOrdinal[6] = '2';
   rejects(`SELECT ${readCall('agent', SESSION, AT, forgedOrdinal.join('.'), 1)}`, /SHOP_DIRECTORY_CURSOR/);
   const forgedDigest = [...parts];
-  forgedDigest[5] = '0'.repeat(64);
-  rejects(`SELECT ${readCall('agent', SESSION, AT, forgedDigest.join('.'), 1)}`, /SHOP_DIRECTORY_CHANGED/);
-  rejects(`SELECT ${readCall('agent', 'c'.repeat(64), AT, page1.nextCursor, 1)}`, /SHOP_DIRECTORY_SESSION/);
+  forgedDigest[4] = '0'.repeat(64);
+  rejects(`SELECT ${readCall('agent', SESSION, AT, forgedDigest.join('.'), 1)}`, /SHOP_DIRECTORY_CURSOR/);
+  rejects(`SELECT ${readCall('agent', 'c'.repeat(64), AT, page1.nextCursor, 1)}`, /SHOP_DIRECTORY_CURSOR/);
   rejects(`SELECT ${readCall('agent', SESSION, AT, '', 1)}`, /SHOP_DIRECTORY_CURSOR/);
   rejects(`SELECT ${readCall('agent', SESSION, AT, null, 0)}`, /SHOP_DIRECTORY_CURSOR/);
   rejects(`SELECT ${readCall('agent', SESSION, AT, null, 101)}`, /SHOP_DIRECTORY_CURSOR/);
   rejects(`SELECT ${readCall('nobody', SESSION, AT, null, 50)}`, /SHOP_DIRECTORY_SESSION/);
   rejects(`SELECT ${readCall('missing-agent', SESSION, AT, null, 50)}`, /SHOP_DISPLAY_MISSING/);
   rejects(`SELECT ${readCall('disabled-agent', SESSION, AT, null, 50)}`, /SHOP_DIRECTORY_EXPIRED/);
-  rejects(`SELECT ${readCall('agent', SESSION, "timestamptz '2026-10-08 00:04:00+00'", null, 50)}`, /SHOP_DIRECTORY_EXPIRED/);
+  rejects(`SELECT ${readCall('agent', SESSION, atOffset(240000), null, 50)}`, /SHOP_DIRECTORY_EXPIRED/);
   const manager = readDirectory('manager');
   assert.deepEqual(manager.items, []);
   assert.equal(sql(`SELECT content_intake.authorization_deadline('manager','publish','b-product','src-b-product',${AT}) IS NOT NULL`), 't');
@@ -203,11 +219,11 @@ try {
   assert.deepEqual(stewardPage.items, []);
   assert.equal(sql(`SELECT (${quote(stewardPage.validUntil)})::timestamptz = timestamptz '${UNTIL}'`), 't');
   const deadlineUs = sql(`SELECT (extract(epoch FROM timestamptz '${UNTIL}') * 1000000)::bigint`);
-  const emptyCursor = `sd1.${SESSION}.1.0.${revisionOf('tenant-a', 'app-a')}.${emptyDigest}.${deadlineUs}.1.shop-a`;
+  const emptyCursor = `sd2.1.0.${revisionOf('tenant-a', 'app-a')}.${emptyDigest}.${deadlineUs}.1.50.shop-a.${'0'.repeat(64)}`;
   rejects(`SELECT ${readCall('steward', SESSION, AT, emptyCursor, 50)}`, /SHOP_DIRECTORY_CURSOR/);
   assert.deepEqual(readDirectory('brand-agent').items, []);
   assert.deepEqual(readDirectory('outsider').items, [{ shopId: 'shop-a', displayName: '租户乙店', displayVersion: 1 }]);
-  rejects(`SELECT ${readCall('outsider', SESSION, AT, page1.nextCursor, 50)}`, /SHOP_DIRECTORY_CHANGED/);
+  rejects(`SELECT ${readCall('outsider', SESSION, AT, page1.nextCursor, 50)}`, /SHOP_DIRECTORY_CURSOR/);
   checks += 3;
   sql(`INSERT INTO content_intake.grants(grant_id,kind,issuer_id,recipient_id,tenant_id,app_id,scope_id,action,starts_at,expires_at,steward_id,parent_grant_id,reason) VALUES ('grant-brand-agent-a-product-query','business','director','brand-agent','tenant-a','app-a','a-product','query',timestamptz '${START}',timestamptz '${GRANT_END}','director','alloc-tenant-a-a-product-query','synthetic brand narrow')`);
   assert.deepEqual(readDirectory('brand-agent').items, [visible[0]]);
@@ -216,11 +232,18 @@ try {
   const expiryPage = readDirectory('expiry-agent', null, 1);
   assert.deepEqual(expiryPage.items, [{ shopId: 'shop-b', displayName: '合成同名店', displayVersion: 1 }]);
   assert.equal(typeof expiryPage.nextCursor, 'string');
-  assert.equal(sql(`SELECT (${quote(expiryPage.validUntil)})::timestamptz = timestamptz '2026-10-08 00:02:00+00'`), 't');
-  rejects(`SELECT ${readCall('expiry-agent', SESSION, "timestamptz '2026-10-08 00:02:00+00'", expiryPage.nextCursor, 1)}`, /SHOP_DIRECTORY_EXPIRED/);
-  assert.deepEqual(readDirectory('expiry-agent', null, 50, SESSION, "timestamptz '2026-10-08 00:02:00+00'").items, [visible[1]]);
-  rejects(`SELECT ${readCall('expiry-agent', SESSION, "timestamptz '2026-10-08 00:04:00+00'", null, 50)}`, /SHOP_DIRECTORY_EXPIRED/);
+  assert.equal(sql(`SELECT (${quote(expiryPage.validUntil)})::timestamptz = timestamptz '${EXPIRES}'`), 't');
+  rejects(`SELECT ${readCall('expiry-agent', SESSION, atOffset(120000), expiryPage.nextCursor, 1)}`, /SHOP_DIRECTORY_EXPIRED/);
+  assert.deepEqual(readDirectory('expiry-agent', null, 50, SESSION, atOffset(120000)).items, [visible[1]]);
+  rejects(`SELECT ${readCall('expiry-agent', SESSION, atOffset(240000), null, 50)}`, /SHOP_DIRECTORY_EXPIRED/);
   checks += 3;
+
+  const renewalPage = readDirectory('expiry-agent', null, 1);
+  sql(`INSERT INTO content_intake.grants(grant_id,kind,issuer_id,recipient_id,tenant_id,app_id,scope_id,action,starts_at,expires_at,steward_id,parent_grant_id,reason) VALUES ('renewed-expiry','business','director','expiry-agent','tenant-a','app-a','expiry-product','query',timestamptz '${START}',timestamptz '${GRANT_END}','director','alloc-tenant-a-expiry-product-query','synthetic renewal')`);
+  const renewalNext = readDirectory('expiry-agent', renewalPage.nextCursor, 1);
+  assert.equal(renewalNext.validUntil, renewalPage.validUntil);
+  rejects(`SELECT ${readCall('expiry-agent', SESSION, atOffset(120000), renewalPage.nextCursor, 1)}`, /SHOP_DIRECTORY_EXPIRED/);
+  checks += 1;
 
   const beforeRename = readDirectory('agent', null, 1).nextCursor;
   const renamed = upsert('steward', 'tenant-a', 'app-a', 'shop-c', '合成丙店新名', revisionOf('tenant-a', 'app-a'));
@@ -260,6 +283,30 @@ try {
   }
   assert.match(sql(`SELECT proconfig::text FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='content_intake' AND p.proname='read_shop_directory'`), /search_path=pg_catalog/);
   checks += 4;
+  // Steward identity and facts are current authorization, never perpetual membership.
+  sql(`UPDATE backend_identity.subject_bindings SET enabled=false WHERE user_id='steward'`);
+  rejects(`SELECT content_intake.upsert_shop_display('steward','tenant-a','app-a','shop-a','停用更名',${revisionOf('tenant-a', 'app-a')})`, /SHOP_DIRECTORY_STEWARD_REQUIRED/);
+  sql(`UPDATE backend_identity.subject_bindings SET enabled=true WHERE user_id='steward'; INSERT INTO content_intake.principal_facts VALUES ('steward',2,ARRAY['dept'],'steward-job',false,timestamptz '${CHECKED}',timestamptz '${UNTIL}',${quote(HASH)}); UPDATE content_intake.principals SET current_facts_version=2, revocation_generation=revocation_generation+1 WHERE principal_id='steward'`);
+  rejects(`SELECT content_intake.upsert_shop_display('steward','tenant-a','app-a','shop-a','停用事实更名',${revisionOf('tenant-a', 'app-a')})`, /SHOP_DIRECTORY_STEWARD_REQUIRED/);
+  // A lock wait must not reuse the request's old timestamp to return an expired page.
+  sql(`INSERT INTO content_intake.principal_facts VALUES ('agent',2,ARRAY['dept'],'agent-job',true,clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 second',${quote(HASH)}); UPDATE content_intake.principals SET current_facts_version=2, revocation_generation=revocation_generation+1 WHERE principal_id='agent'`);
+  const blocker = spawn(path.join(bin, 'psql'), [...args, '-Atc', "SET application_name='shop-directory-lock-probe'; BEGIN; SELECT pg_advisory_xact_lock(hashtextextended('tenant-a:app-a',0)); SELECT pg_sleep(2); COMMIT;"], { cwd: root, env, stdio: ['ignore', 'ignore', 'pipe'] });
+  const blockerClosed = new Promise((resolve, reject) => { blocker.once('error', reject); blocker.once('close', code => code === 0 ? resolve() : reject(new Error(`lock probe exit ${code}`))); });
+  let locked = false;
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (sql("SELECT count(*) FROM pg_stat_activity WHERE application_name='shop-directory-lock-probe' AND wait_event='PgSleep'") === '1') { locked = true; break; }
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(locked, true);
+  rejects(`SELECT ${readCall('agent', SESSION, AT, null, 50)}`, /SHOP_DIRECTORY_EXPIRED/);
+  await blockerClosed;
+  // Inject only HMAC computation delay in this disposable DB to exercise RETURN's clock gate.
+  sql(`INSERT INTO content_intake.principal_facts VALUES ('agent',3,ARRAY['dept'],'agent-job',true,clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 second',${quote(HASH)}); UPDATE content_intake.principals SET current_facts_version=3, revocation_generation=revocation_generation+1 WHERE principal_id='agent'; ALTER FUNCTION public.hmac(bytea,bytea,text) RENAME TO synthetic_hmac_original; CREATE FUNCTION public.hmac(bytea,bytea,text) RETURNS bytea LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(2); RETURN public.synthetic_hmac_original($1,$2,$3); END $$;`);
+  rejects(`SELECT ${readCall('agent', SESSION, AT, null, 1)}`, /SHOP_DIRECTORY_EXPIRED/);
+  sql('DROP FUNCTION public.hmac(bytea,bytea,text); ALTER FUNCTION public.synthetic_hmac_original(bytea,bytea,text) RENAME TO hmac');
+  // GUC is not an ACL: application roles still cannot open a bypass by setting it.
+  rejects(`SET ROLE app_runtime; SET content_intake.directory_write='writing'; INSERT INTO content_intake.shop_displays(tenant_id,app_id,shop_id,display_version,display_name,directory_revision,steward_id,recorded_at) VALUES ('tenant-a','app-a','shop-injected',1,'注入',1,'steward',clock_timestamp())`, /permission denied/);
+
   const result = {
     status: 'PASS', checks, postgres: run('postgres', ['--version']).trim(), port: 55444,
     scope: 'synthetic shop directory only; not approved for real tenant data',

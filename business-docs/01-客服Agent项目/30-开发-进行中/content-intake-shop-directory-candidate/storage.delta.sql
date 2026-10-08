@@ -4,6 +4,15 @@
 -- replace content_intake.authorization_deadline.
 -- No application role receives EXECUTE or table privileges.
 
+-- Match the wire character rule: no control/line-separator characters, and
+-- ECMAScript whitespace may occur only inside a nonblank name.
+CREATE FUNCTION content_intake.valid_shop_display_name(p_name TEXT) RETURNS BOOLEAN
+LANGUAGE SQL IMMUTABLE SET search_path = pg_catalog AS $$
+  SELECT p_name IS NOT NULL AND char_length(p_name) BETWEEN 1 AND 256
+    AND p_name = btrim(p_name, U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF')
+    AND p_name !~ U&'[\0001-\001F\007F\2028\2029]'
+$$;
+
 CREATE TABLE content_intake.shop_directory_stewards (
   tenant_id content_intake.identifier NOT NULL,
   app_id content_intake.identifier NOT NULL,
@@ -42,8 +51,7 @@ CREATE TABLE content_intake.shop_displays (
   steward_id content_intake.identifier NOT NULL,
   recorded_at TIMESTAMPTZ NOT NULL CHECK (isfinite(recorded_at)),
   PRIMARY KEY (tenant_id, app_id, shop_id, display_version),
-  CHECK (char_length(btrim(display_name)) BETWEEN 1 AND 256),
-  CHECK (display_name = btrim(display_name)),
+  CHECK (content_intake.valid_shop_display_name(display_name)),
   FOREIGN KEY (steward_id, tenant_id, app_id)
     REFERENCES content_intake.principals(principal_id, tenant_id, app_id)
 );
@@ -119,25 +127,31 @@ CREATE FUNCTION content_intake.upsert_shop_display(
 LANGUAGE plpgsql VOLATILE SET search_path = pg_catalog AS $$
 DECLARE
   v_steward content_intake.identifier;
+  v_steward_until TIMESTAMPTZ;
   v_revision content_intake.version;
   v_next_revision content_intake.version;
   v_version content_intake.version;
   v_identifier CONSTANT TEXT := '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$';
 BEGIN
-  IF p_actor !~ v_identifier OR p_tenant !~ v_identifier OR p_app !~ v_identifier OR p_shop !~ v_identifier
-     OR p_display_name IS NULL OR p_display_name IS DISTINCT FROM btrim(p_display_name)
-     OR char_length(p_display_name) < 1 OR char_length(p_display_name) > 256 THEN
+  IF p_actor IS NULL OR p_tenant IS NULL OR p_app IS NULL OR p_shop IS NULL
+     OR p_actor !~ v_identifier OR p_tenant !~ v_identifier OR p_app !~ v_identifier OR p_shop !~ v_identifier
+     OR NOT content_intake.valid_shop_display_name(p_display_name) THEN
     RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DISPLAY_INVALID';
   END IF;
-  SELECT s.steward_id INTO v_steward
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_tenant || ':' || p_app, 0));
+  SELECT s.steward_id, f.valid_until INTO v_steward, v_steward_until
   FROM content_intake.shop_directory_stewards s
   JOIN content_intake.principals p
     ON p.principal_id = p_actor AND p.tenant_id = s.tenant_id AND p.app_id = s.app_id
-  WHERE s.tenant_id = p_tenant AND s.app_id = p_app AND s.steward_id = p_actor;
-  IF NOT FOUND THEN
+  JOIN content_intake.principal_facts f ON f.principal_id = p.principal_id AND f.facts_version = p.current_facts_version
+  JOIN backend_identity.subject_bindings b ON b.user_id = p.user_id
+  WHERE s.tenant_id = p_tenant AND s.app_id = p_app AND s.steward_id = p_actor
+    AND b.enabled AND f.enabled AND f.checked_at <= pg_catalog.clock_timestamp()
+    AND pg_catalog.clock_timestamp() < f.valid_until
+  FOR SHARE OF s, p, f, b;
+  IF NOT FOUND OR pg_catalog.clock_timestamp() >= v_steward_until THEN
     RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_STEWARD_REQUIRED';
   END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_tenant || ':' || p_app, 0));
   SELECT r.directory_revision INTO v_revision
   FROM content_intake.shop_directory_revisions r
   WHERE r.tenant_id = p_tenant AND r.app_id = p_app
@@ -174,6 +188,10 @@ BEGIN
        SET directory_revision = v_next_revision
      WHERE tenant_id = p_tenant AND app_id = p_app;
   END IF;
+  IF pg_catalog.clock_timestamp() >= v_steward_until THEN
+    RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_STEWARD_REQUIRED';
+  END IF;
+  PERFORM pg_catalog.set_config('content_intake.directory_write', '', true);
   RETURN pg_catalog.jsonb_build_object(
     'shopId', p_shop,
     'displayName', p_display_name,
@@ -183,8 +201,10 @@ BEGIN
 END;
 $$;
 
+-- Signing key is a distinct server-only input, never derived from a bearer token
+-- or session hash. A client knowing its own token must not be able to sign a cursor.
 CREATE FUNCTION content_intake.read_shop_directory(
-  p_principal TEXT, p_session_hash TEXT, p_at TIMESTAMPTZ, p_cursor TEXT, p_limit INTEGER
+  p_principal TEXT, p_session_hash TEXT, p_at TIMESTAMPTZ, p_cursor TEXT, p_limit INTEGER, p_cursor_signing_key TEXT
 ) RETURNS JSONB
 LANGUAGE plpgsql VOLATILE SET search_path = pg_catalog AS $$
 DECLARE
@@ -201,7 +221,11 @@ DECLARE
   v_limit INTEGER;
   v_cursor_ord BIGINT := 0;
   v_match TEXT[];
-  v_cursor_session TEXT;
+  v_cursor_signature TEXT;
+  v_payload TEXT;
+  v_signature TEXT;
+  v_cursor_limit INTEGER;
+  v_at TIMESTAMPTZ;
   v_cursor_facts BIGINT;
   v_cursor_revocation BIGINT;
   v_cursor_revision BIGINT;
@@ -218,25 +242,30 @@ DECLARE
 BEGIN
   IF p_principal IS NULL OR p_session_hash IS NULL OR p_at IS NULL OR NOT isfinite(p_at)
      OR p_session_hash !~ '^[0-9a-f]{64}$'
+     OR p_cursor_signing_key IS NULL OR p_cursor_signing_key !~ '^[0-9a-f]{64}$'
      OR (p_cursor IS NOT NULL AND (octet_length(p_cursor) = 0 OR octet_length(p_cursor) > 512))
      OR (p_limit IS NOT NULL AND (p_limit < 1 OR p_limit > 100)) THEN
     RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_CURSOR';
   END IF;
   v_limit := coalesce(p_limit, 50);
-  SELECT p.tenant_id, p.app_id, p.current_facts_version, p.revocation_generation, f.valid_until
-    INTO v_tenant, v_app, v_facts, v_revocation, v_fact_until
+  SELECT tenant_id, app_id INTO v_tenant, v_app FROM content_intake.principals WHERE principal_id = p_principal;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_SESSION';
+  END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock_shared(pg_catalog.hashtextextended(v_tenant || ':' || v_app, 0));
+  v_at := greatest(p_at, pg_catalog.clock_timestamp());
+  SELECT p.current_facts_version, p.revocation_generation, f.valid_until
+    INTO v_facts, v_revocation, v_fact_until
   FROM content_intake.principals p
   JOIN content_intake.principal_facts f
     ON f.principal_id = p.principal_id AND f.facts_version = p.current_facts_version
-  WHERE p.principal_id = p_principal
-    AND f.enabled AND f.checked_at <= p_at AND p_at < f.valid_until;
+  JOIN backend_identity.subject_bindings b ON b.user_id = p.user_id
+  WHERE p.principal_id = p_principal AND p.tenant_id = v_tenant AND p.app_id = v_app
+    AND b.enabled AND f.enabled AND f.checked_at <= v_at AND v_at < f.valid_until
+  FOR SHARE OF p, f, b;
   IF NOT FOUND THEN
-    IF NOT EXISTS (SELECT 1 FROM content_intake.principals WHERE principal_id = p_principal) THEN
-      RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_SESSION';
-    END IF;
     RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_EXPIRED';
   END IF;
-  PERFORM pg_catalog.pg_advisory_xact_lock_shared(pg_catalog.hashtextextended(v_tenant || ':' || v_app, 0));
   SELECT r.directory_revision INTO v_revision
   FROM content_intake.shop_directory_revisions r
   WHERE r.tenant_id = v_tenant AND r.app_id = v_app;
@@ -254,7 +283,7 @@ BEGIN
     INTO v_visible
   FROM (
     SELECT s.shop_id, d.display_name, c.display_version,
-           min(content_intake.authorization_deadline(p_principal, 'query', s.scope_id, src.source_id, p_at)) AS shop_deadline
+           min(content_intake.authorization_deadline(p_principal, 'query', s.scope_id, src.source_id, v_at)) AS shop_deadline
     FROM content_intake.scopes s
     JOIN content_intake.sources src ON src.scope_id = s.scope_id AND src.mode = 'v2-preview'
     LEFT JOIN content_intake.shop_display_current c
@@ -263,7 +292,7 @@ BEGIN
       ON d.tenant_id = c.tenant_id AND d.app_id = c.app_id AND d.shop_id = c.shop_id
      AND d.display_version = c.display_version
     WHERE s.tenant_id = v_tenant AND s.app_id = v_app AND s.shop_id IS NOT NULL
-      AND content_intake.authorization_deadline(p_principal, 'query', s.scope_id, src.source_id, p_at) IS NOT NULL
+      AND content_intake.authorization_deadline(p_principal, 'query', s.scope_id, src.source_id, v_at) IS NOT NULL
     GROUP BY s.shop_id, d.display_name, c.display_version
   ) q;
   IF (SELECT count(DISTINCT item->>'shopId') FROM jsonb_array_elements(v_visible) item)
@@ -289,26 +318,30 @@ BEGIN
   ELSE
     v_deadline := least(v_fact_until, v_deadline);
   END IF;
+  v_deadline := date_trunc('milliseconds', v_deadline);
   v_deadline_us := (extract(epoch FROM v_deadline) * 1000000)::bigint;
   IF p_cursor IS NOT NULL THEN
-    v_match := regexp_match(p_cursor, '^sd1\.([0-9a-f]{64})\.([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9a-f]{64})\.([0-9]+)\.([0-9]+)\.([A-Za-z0-9][A-Za-z0-9._:-]{0,127})$');
+    v_match := regexp_match(p_cursor, '^sd2\.([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9a-f]{64})\.([0-9]+)\.([0-9]+)\.([0-9]+)\.([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\.([0-9a-f]{64})$');
     IF v_match IS NULL THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_CURSOR';
     END IF;
     BEGIN
-      v_cursor_session := v_match[1];
-      v_cursor_facts := v_match[2]::bigint;
-      v_cursor_revocation := v_match[3]::bigint;
-      v_cursor_revision := v_match[4]::bigint;
-      v_cursor_digest := v_match[5];
-      v_cursor_deadline_us := v_match[6]::bigint;
-      v_cursor_ord := v_match[7]::bigint;
+      v_cursor_facts := v_match[1]::bigint;
+      v_cursor_revocation := v_match[2]::bigint;
+      v_cursor_revision := v_match[3]::bigint;
+      v_cursor_digest := v_match[4];
+      v_cursor_deadline_us := v_match[5]::bigint;
+      v_cursor_ord := v_match[6]::bigint;
+      v_cursor_limit := v_match[7]::integer;
       v_cursor_shop := v_match[8];
+      v_cursor_signature := v_match[9];
     EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_CURSOR';
     END;
-    IF v_cursor_session IS DISTINCT FROM p_session_hash THEN
-      RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_SESSION';
+    v_payload := left(p_cursor, length(p_cursor) - 65);
+    v_signature := encode(public.hmac(convert_to(jsonb_build_array(p_principal, v_tenant, v_app, p_session_hash, v_payload)::text, 'UTF8'), decode(p_cursor_signing_key, 'hex'), 'sha256'), 'hex');
+    IF v_cursor_signature IS DISTINCT FROM v_signature OR v_cursor_limit IS DISTINCT FROM v_limit THEN
+      RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_CURSOR';
     END IF;
     IF v_cursor_facts IS DISTINCT FROM v_facts OR v_cursor_revocation IS DISTINCT FROM v_revocation THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_CHANGED';
@@ -316,10 +349,10 @@ BEGIN
     IF v_cursor_revision IS DISTINCT FROM v_revision THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_CHANGED';
     END IF;
-    IF (extract(epoch FROM p_at) * 1000000)::bigint >= v_cursor_deadline_us THEN
+    IF (extract(epoch FROM v_at) * 1000000)::bigint >= v_cursor_deadline_us THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_EXPIRED';
     END IF;
-    IF v_cursor_digest IS DISTINCT FROM v_digest THEN
+    IF v_deadline_us < v_cursor_deadline_us OR v_cursor_digest IS DISTINCT FROM v_digest THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_CHANGED';
     END IF;
     BEGIN
@@ -330,6 +363,12 @@ BEGIN
     IF v_boundary IS NULL OR v_boundary IS DISTINCT FROM v_cursor_shop OR v_cursor_ord < 1 THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_CURSOR';
     END IF;
+    -- Renewal must not extend the original pagination lifetime.
+    v_deadline_us := v_cursor_deadline_us;
+    v_deadline := to_timestamp(v_deadline_us / 1000000.0);
+  END IF;
+  IF greatest(p_at, pg_catalog.clock_timestamp()) >= v_deadline THEN
+    RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_EXPIRED';
   END IF;
   v_after_count := v_count - coalesce(v_cursor_ord, 0);
   SELECT coalesce(jsonb_agg(page.item ORDER BY page.ord), '[]'::jsonb)
@@ -345,12 +384,18 @@ BEGIN
   v_next := NULL;
   IF v_after_count > v_limit THEN
     v_last := v_items -> (v_len - 1) ->> 'shopId';
-    v_next := 'sd1.' || p_session_hash || '.' || v_facts::text || '.' || v_revocation::text || '.'
+    v_payload := 'sd2.' || v_facts::text || '.' || v_revocation::text || '.'
       || v_revision::text || '.' || v_digest || '.' || v_deadline_us::text || '.'
-      || (coalesce(v_cursor_ord, 0) + v_len)::text || '.' || v_last;
+      || (coalesce(v_cursor_ord, 0) + v_len)::text || '.' || v_limit::text || '.' || v_last;
+    v_signature := encode(public.hmac(convert_to(jsonb_build_array(p_principal, v_tenant, v_app, p_session_hash, v_payload)::text, 'UTF8'), decode(p_cursor_signing_key, 'hex'), 'sha256'), 'hex');
+    v_next := v_payload || '.' || v_signature;
     IF octet_length(v_next) > 512 THEN
       RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_CURSOR';
     END IF;
+  END IF;
+  -- Page construction and HMAC can also consume the remaining lifetime.
+  IF greatest(p_at, pg_catalog.clock_timestamp()) >= v_deadline THEN
+    RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'SHOP_DIRECTORY_EXPIRED';
   END IF;
   RETURN jsonb_build_object(
     'items', v_items,
@@ -365,8 +410,10 @@ REVOKE ALL ON FUNCTION content_intake.shop_display_guard() FROM PUBLIC;
 REVOKE ALL ON FUNCTION content_intake.shop_display_current_guard() FROM PUBLIC;
 REVOKE ALL ON FUNCTION content_intake.shop_directory_revision_guard() FROM PUBLIC;
 REVOKE ALL ON FUNCTION content_intake.upsert_shop_display(TEXT, TEXT, TEXT, TEXT, TEXT, BIGINT) FROM PUBLIC;
-REVOKE ALL ON FUNCTION content_intake.read_shop_directory(TEXT, TEXT, TIMESTAMPTZ, TEXT, INTEGER) FROM PUBLIC;
+REVOKE ALL ON FUNCTION content_intake.read_shop_directory(TEXT, TEXT, TIMESTAMPTZ, TEXT, INTEGER, TEXT) FROM PUBLIC;
 REVOKE ALL ON TABLE content_intake.shop_directory_stewards FROM PUBLIC;
 REVOKE ALL ON TABLE content_intake.shop_directory_revisions FROM PUBLIC;
 REVOKE ALL ON TABLE content_intake.shop_displays FROM PUBLIC;
 REVOKE ALL ON TABLE content_intake.shop_display_current FROM PUBLIC;
+
+REVOKE ALL ON FUNCTION content_intake.valid_shop_display_name(TEXT) FROM PUBLIC;

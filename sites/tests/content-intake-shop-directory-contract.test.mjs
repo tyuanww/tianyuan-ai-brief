@@ -101,13 +101,16 @@ test('shop directory accepts one current name per id and rejects blank, padded, 
   assert.equal(directory(page), true, JSON.stringify(directory.errors));
   assert.equal(display({ ...row, displayName: '名'.repeat(256) }), true);
   assert.equal(display({ ...row, displayName: '合 成' }), true);
-  for (const displayName of ['', ' ', ' 合成', '合成 ', '名'.repeat(257)]) assert.equal(display({ ...row, displayName }), false);
+  for (const displayName of ['', ' ', ' 合成', '合成 ', '\t', '名\n称', '\u00a0合成', '合成\u3000', '合成\u2028店', '\ufeff合成', '名'.repeat(257)]) assert.equal(display({ ...row, displayName }), false);
   assert.equal(display({ ...row, action: 'publish' }), false);
   assert.equal(display({ ...row, shopId: '' }), false);
   assert.equal(directory({ ...page, items: Array.from({ length: 101 }, (_, index) => ({ ...row, shopId: `shop-${index}` })) }), false);
   assert.equal(directory({ ...page, nextCursor: 'a'.repeat(513) }), false);
   assert.equal(directory({ ...page, validUntil: 'not-a-date' }), false);
   assert.equal(directory({ ...page, granted: true }), false);
+  const worstPage = { ...page, items: Array.from({ length: 100 }, (_, index) => ({ shopId: String(index).padEnd(128, 'x'), displayName: '😀'.repeat(256), displayVersion: Number.MAX_SAFE_INTEGER })), nextCursor: 'x'.repeat(512) };
+  assert.equal(directory(worstPage), true);
+  assert.ok(Buffer.byteLength(JSON.stringify(worstPage)) <= operation['x-max-response-bytes']);
 });
 
 test('generator rejects a second verb, a dropped route, a changed reason, an extra schema and a replaced deadline', () => {

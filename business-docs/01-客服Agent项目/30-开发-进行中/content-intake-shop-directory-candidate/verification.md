@@ -1,5 +1,17 @@
 # 店铺目录候选验证
 
+## 2026-10-08 主 Agent 回收修复
+
+回收实际 PG 复现旧游标暴露会话哈希、两字段联动篡改、延长过期截止、无效名称和停用维护人更名。原复现为 `/tmp/recover-c-probe.log`，冻结旧字节未改。新候选改用独立服务端私有 HMAC key，仅合成 fixture；读写在锁后检查真实时钟和当前身份事实，SQL/JSONSchema 名称规则一致，合法 Unicode 最大页提高为 128 KiB。
+
+定向 Node 合同测试 3/3、PG15 实际检查 140/140 已通过。PG 新增锁等待到期、已知会话哈希无法重签、篡改页界/截止/limit/会话拒绝、授权续期不延长原游标、身份/事实停用拒绝、SET GUC 不能绕过应用 ACL。完整 release 实际退出 0，41 步均退出 0。执行中追加了最终 RETURN 时钟门与 PG 故障注入；因此这是组合证据，不声称单次不可变最终输入全量验证。最终字节另行通过 PG140、合同3、生成一致性与 OpenAPI lint（23 条既有 warning），未受影响步骤复用。HMAC 延迟仅在一次性 PG 内故障注入，用于证明计算跨截止时拒绝，不代表生产性能。
+
+维护人登记、撤销与轮换规则，以及正式签名 key 持有/注入/轮换，仍是冻结前条件；本次未批准任何真人名单或生产配置。
+
+实际命令与输入、日志 SHA-256 见 [recovery-checks.json](recovery-checks.json)。日志目录仍为 gitignore 的 `output/content-intake-shop-directory-contract/`，本轮日志均使用 `recovery-` 前缀；原 release 日志及原 PG 安装/结果按原哈希保留。完整外部 `/review` 仍为 **INCOMPLETE**，本次没有调用外部审核。
+
+## 原提交 7e4a3bd 的历史证据（不得用于修复后候选）
+
 > 状态：DRAFT 合成验证。不是合同批准，不能接真实租户或真实店铺名称。
 
 环境：Node `v24.19.0`（`$HOME/homebrew/opt/node@24/bin`），PostgreSQL `15.18`（`PG_BIN=$HOME/homebrew/opt/postgresql@15/bin`）。治理仓脚本使用 npm。锁文件未改。一次性数据库只走本机 Unix socket、trust、端口 `55444`，跑完即删。
