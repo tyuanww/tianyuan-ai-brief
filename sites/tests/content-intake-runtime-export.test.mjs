@@ -37,6 +37,7 @@ test('runtime v2 export refuses draft/missing approvals and delivers a complete 
     const options={repository:repo,expectedOpenapiSha256:hash(generated.openapi),expectedDatabaseSha256:hash(generated.database)};
     const load=()=>loadContractSetFromCommit({...options,sourceGitSha:commit()});
     write(OWNER_PROFILE_PATH,JSON.stringify({schema:'customer-agent-contract-profile/v1',profile:'content-intake-runtime-v1'}));
+    write(paths.increment,read(paths.increment).toString().replace(/^> 状态：[^\r\n]+$/m,'> 状态：DRAFT · NOT FROZEN · NOT EXPORTED · NOT INTAKE · SYNTHETIC DEVELOPMENT ONLY'));
     assert.throws(load,/运行接入合同未冻结/);
     write(paths.increment,frozen);assert.throws(load,/git rev-parse 失败/);
     write(INTAKE_RUNTIME_APPROVAL_PATH,approval.replace('APPROVED','DRAFT'));assert.throws(load,/缺 P2 运行接入/);

@@ -1,6 +1,6 @@
 # 运行接入合同候选
 
-DRAFT · NOT FROZEN · NOT EXPORTED · NOT INTAKE。沿 OpenAPI1.21/schema1.23 组合组织注册输入、用途受限执行和店铺目录，不添加业务范围、真实数据、登录凭据或自动同步。业务角色上限沿冻结 authorization_deadline：两岗配置、四岗范围业务、agent/enabler 查询。首批 FAQ/售前/售后/活动和 Mac 合成验收由产品计划管理，不改变本存储边界。
+规范已精确冻结并获 export/intake 与合成接入批准；实际导出与接收以各自产物证据为准。机器 DRAFT 元数据保留原字节。沿 OpenAPI1.21/schema1.23 组合组织注册输入、用途受限执行和店铺目录，不添加业务范围、真实数据、登录凭据或自动同步。业务角色上限沿冻结 authorization_deadline：两岗配置、四岗范围业务、agent/enabler 查询。首批 FAQ/售前/售后/活动和 Mac 合成验收由产品计划管理，不改变本存储边界。
 
 ## 安装边界与所有者
 
@@ -48,10 +48,10 @@ bindings/observations 不可改历史；current 指针版本只能加一，有�
 
 provenance.json 固定产品输入 commit cff9fa9 和各源文件/overlay SHA；治理生成器只读本仓源，不从产品仓运行时读取。installation.generated.json 是机器可核对的组合登记，包含 core/OpenAPI 哈希、每个 SQL/协议/provenance 哈希、产品 overlay 依赖、安装顺序和必需 bundle 工件。
 
-exporter 已支持显式 `content-intake-runtime-v1` profile 与 `customer-agent-contract-set/v2`：在原 OpenAPI/DDL 描述外增加固定九件 runtime 工件，共十二个扁平文件（含 manifest），逐件校验字节、哈希和源提交，验证 installation 的反向引用及 overlay 依赖。历史 profile 继续生成 v1 双工件。实际 `contract-profile.v1.json` 保持原 direct profile，本候选仍拒绝导出。
+exporter 已支持显式 `content-intake-runtime-v1` profile 与 `customer-agent-contract-set/v2`：在原 OpenAPI/DDL 描述外增加固定九件 runtime 工件，共十二个扁平文件（含 manifest），逐件校验字节、哈希和源提交，验证 installation 的反向引用及 overlay 依赖。历史 profile 继续生成 v1 双工件。实际 `contract-profile.v1.json` 已按批准切换 runtime profile；没有精确批准或工件漂移时仍拒绝导出。
 
-正式冻结必须在规范文档标记 FROZEN，并由独立 `90-评审/2026-10-08_P2运行接入合同批准.md` 精确批准 OpenAPI/DDL 和 installation SHA；installation 绑定全部伴随件及 overlay 依赖。机器源中的 DRAFT/exportApproved:false 是原始候选元数据，冻结时不通过翻转这些字段改写已批准字节。受控出口要求独立批准记录与源提交中的生成字节一致；没有批准、遗漏伴随 ACL、错哈希或依赖漂移均拒绝。当前仅临时合成 Git 仓产生测试包并实际交给 verifier，不冻结、不导出本仓候选。
+本次冻结已在规范文档标记 FROZEN，并由独立 `90-评审/2026-10-08_P2运行接入合同批准.md` 精确批准 OpenAPI/DDL 和 installation SHA；installation 绑定全部伴随件及 overlay 依赖。机器源中的 DRAFT/exportApproved:false 是原始候选元数据，冻结时不通过翻转这些字段改写已批准字节。受控出口要求独立批准记录与源提交中的生成字节一致；没有批准、遗漏伴随 ACL、错哈希或依赖漂移均拒绝。冻结前仅临时合成 Git 仓产生测试包；本次获准从本仓精确提交导出不可变完整包，产品接收及合成接入由主 Agent 回收。真实运行仍关闭。
 
 ## 验证与未完成边界
 
-治理一次性 PG 验证实际 NOINHERIT LOGIN→单能力、跨用途/属主拒绝、组织 provenance 与 CAS、目录真实消费者及参考形态缺实现拒绝；B 在产品既有 overlay 上安装同一伴随 SQL 并进入真实 service 消费者。只有两边证据都匹配同一源哈希才能说明本候选可安装/可消费。合成通过仍不代表精确冻结批准、真实名单就绪或部署许可。
+治理一次性 PG 验证实际 NOINHERIT LOGIN→单能力、跨用途/属主拒绝、组织 provenance 与 CAS、目录真实消费者及参考形态缺实现拒绝；B 在产品既有 overlay 上安装同一伴随 SQL 并进入真实 service 消费者。只有两边证据都匹配同一源哈希才能说明本候选可安装/可消费。本次精确批准另有规范记录；合成通过仍不代表真实名单就绪或部署许可。

@@ -41,7 +41,7 @@ ajv.addSchema({ $id: 'urn:synthetic:shop-directory', components: { schemas } });
 const validate = name => ajv.compile({ $ref: `urn:synthetic:shop-directory#/components/schemas/${name}` });
 const reasonsOf = bytes => schemasFrom(bytes).IntakeFailure.properties.details.properties.reason.enum;
 
-test('draft bytes reproduce the frozen predecessor without exporting or replacing authorization', () => {
+test('approved bytes preserve draft metadata and frozen predecessor without replacing authorization', () => {
   assert.ok(generated.openapi.equals(read(INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.openapi)));
   assert.ok(generated.database.equals(read(INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.database)));
   assert.equal(digest(read(INTAKE_DIRECT_CONTRACT_PATHS.openapi)), '1513fe499773c83f4a2b9f0ca8e3a5f7369638f72dc1d18a291235093cfc034d');
@@ -67,13 +67,13 @@ test('draft bytes reproduce the frozen predecessor without exporting or replacin
   assert.equal(storage.includes('CREATE TEMP TABLE') || storage.includes('pg_temp'), false);
   const exported = read('business-docs/08-工具/export_customer_agent_contract_set.mjs').toString('utf8');
   assert.equal(exported.includes('content-intake-runtime-v1'),true);
-  assert.equal(JSON.parse(read('business-docs/01-客服Agent项目/30-开发-进行中/contract-profile.v1.json')).profile,'content-intake-direct-v1');
+  assert.equal(JSON.parse(read('business-docs/01-客服Agent项目/30-开发-进行中/contract-profile.v1.json')).profile,'content-intake-runtime-v1');
   assert.equal(exported.includes('content-intake-direct-v1'), true);
   for (const step of ['test:intake-shop-directory-contract', 'check:intake-shop-directory-contract', 'lint:intake-shop-directory-openapi']) {
     assert.equal(releaseSteps.includes(step), true);
   }
   assert.equal(releaseSteps.includes('test:intake-shop-directory-contract:pg'), false);
-  assert.match(spec, /DRAFT · NOT FROZEN · NOT EXPORTED · NOT INTAKE/);
+  assert.match(spec, /^> 状态：FROZEN · NOT EXPORTED · NOT INTAKE/m);
   for (const hash of [digest(generated.openapi), digest(generated.database), digest(storage), digest(read(INTAKE_SHOP_DIRECTORY_SOURCES.openapi)), digest(read(INTAKE_DIRECT_CONTRACT_PATHS.openapi)), digest(read(INTAKE_DIRECT_CONTRACT_PATHS.database))]) {
     assert.equal(spec.includes(hash), true, hash);
   }
