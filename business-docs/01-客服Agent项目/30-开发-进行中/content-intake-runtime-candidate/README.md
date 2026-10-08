@@ -2,7 +2,7 @@
 
 规范已精确冻结并获 export/intake 与合成接入批准；实际导出与接收以各自产物证据为准。机器 DRAFT 元数据保留原字节。沿 OpenAPI1.21/schema1.23 组合组织注册输入、用途受限执行和店铺目录，不添加业务范围、真实数据、登录凭据或自动同步。业务角色上限沿冻结 authorization_deadline：两岗配置、四岗范围业务、agent/enabler 查询。首批 FAQ/售前/售后/活动和 Mac 合成验收由产品计划管理，不改变本存储边界。
 
-本运行事项的后续 [旧内容校验 ACL 规范](legacy-check-contract.md) 已按独立精确批准冻结：只给既有 NOLOGIN 函数属主增加八个纯校验函数的 EXECUTE。schema1.25、补丁 SQL 与安装描述保留批准原字节；旧 purpose-acl 和已冻结 CSV 五项不变。current profile 经本次批准切换为 `content-intake-legacy-check-v1`，以 v4 完整十六件包交付；实际 export/intake 以回执为准，不能把冻结写成真实运行启用。[候选验证](legacy-check-verification.md)保留冻结前证据。
+本运行事项的后续 [旧内容校验 ACL 规范](legacy-check-contract.md) 已按独立精确批准冻结：只给既有 NOLOGIN 函数属主增加八个纯校验函数的 EXECUTE。schema1.25、补丁 SQL 与安装描述保留批准原字节；旧 purpose-acl 和已冻结 CSV 五项不变。current profile 经本次批准切换为 `content-intake-legacy-check-v1`；v4 完整十六件包已实际导出和独立核验，并通过产品临时接收往返，见[导出回执](legacy-check-export-receipt.md)。产品正式 intake 与运行验证由产品仓拥有，不能把合同交付写成真实运行启用。[候选验证](legacy-check-verification.md)保留冻结前证据。
 
 ## 安装边界与所有者
 

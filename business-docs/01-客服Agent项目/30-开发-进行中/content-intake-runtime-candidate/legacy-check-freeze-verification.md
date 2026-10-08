@@ -21,4 +21,4 @@ node business-docs/08-工具/export_customer_agent_contract_set.mjs --verify=out
 
 主 Agent 已独立只读审查 v4 producer/consumer keys、文件名和批准锚、嵌套 CSV、DDL 原块加增量及历史防降级链，未发现可操作缺陷；实现者完成同范围自查。完整外部 `/review` 维持 **INCOMPLETE**，不把本机审查、批准或测试通过写成外部审核通过。
 
-原始日志位于治理仓 `output/content-intake-runtime-closure-freeze/`。实际来源提交和只读完整包将在独立导出回执中记录；产品接收、迁移和旧目录发布/回退结果由产品仓另行拥有，不由本页代填。
+原始日志位于治理仓 `output/content-intake-runtime-closure-freeze/`。实际来源提交、只读十六件完整包及独立临时产品往返已记录在[导出回执](legacy-check-export-receipt.md)；产品正式接收、迁移和旧目录发布/回退结果由产品仓另行拥有，不由本页代填。

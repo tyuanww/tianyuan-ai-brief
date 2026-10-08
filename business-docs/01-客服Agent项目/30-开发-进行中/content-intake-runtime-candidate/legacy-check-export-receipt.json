@@ -1,0 +1,146 @@
+{
+  "status": "EXPORTED_VERIFIED_NOT_ACTIVATED",
+  "sourceGitSha": "db6ba13d4780a3abb1558e8673e016f7bfb5604e",
+  "contractSetId": "cs-ai-c11-openapi-1.22.0-schema-1.25-db6ba13d4780",
+  "schema": "customer-agent-contract-set/v4",
+  "manifestSha256": "5824420144ff2a6267d588074594df56b9361df5908a03d5955d240826d58904",
+  "directory": "output/customer-agent-contract-sets/cs-ai-c11-openapi-1.22.0-schema-1.25-db6ba13d4780",
+  "files": 16,
+  "runtimeArtifacts": 13,
+  "directoryMode": "0555",
+  "fileMode": "0444",
+  "inventory": [
+    {
+      "file": "contract-set.json",
+      "bytes": 5170,
+      "sha256": "5824420144ff2a6267d588074594df56b9361df5908a03d5955d240826d58904"
+    },
+    {
+      "file": "intake-csv-format.v1.sql",
+      "bytes": 5283,
+      "sha256": "f88db715af84ff0a4dc056ab3a37fdaf71cdd0ae439a78b2d565952a1b93b535"
+    },
+    {
+      "file": "intake-csv-installation.v1.json",
+      "bytes": 5561,
+      "sha256": "e7bee22391c96c498d96e20e868cbf90429405ac3793eeb02bbc93e817939a28"
+    },
+    {
+      "file": "intake-csv-protocol.v1.json",
+      "bytes": 1642,
+      "sha256": "ff83a005795f6a5bdd6597329d93c5fdc132267613886b701193bdf8583b62ca"
+    },
+    {
+      "file": "intake-legacy-check-acl.v1.sql",
+      "bytes": 865,
+      "sha256": "6e286747d15b8af6a11a03d9b00c33d36ac62c36f25efa653285c1cbc6984584"
+    },
+    {
+      "file": "intake-legacy-check-installation.v1.json",
+      "bytes": 4261,
+      "sha256": "fbc601f305013b54e5273e3c4b97faf009f348c3db6a6b4c9f397cfd87707418"
+    },
+    {
+      "file": "intake-runtime-acl.v1.sql",
+      "bytes": 17007,
+      "sha256": "59a5fda26bd839a2edea3d73a2c009f12dba7e89edab787b80c23364dc583e05"
+    },
+    {
+      "file": "intake-runtime-directory-acl.v1.sql",
+      "bytes": 5378,
+      "sha256": "49b4555f80cfe8d7302c67d081cc49a915949b613acda564dcd408a6232c67fa"
+    },
+    {
+      "file": "intake-runtime-organization.v1.sql",
+      "bytes": 7893,
+      "sha256": "656113a5b12a5f6438df467e1afe5858b26c60062568cec4c4535069a283ca14"
+    },
+    {
+      "file": "intake-runtime-protocol.v1.json",
+      "bytes": 2189,
+      "sha256": "4546e98510add2b02b97baaca5bdd9603208502b891fe3e92a3f3bc3ed4f6030"
+    },
+    {
+      "file": "intake-runtime-provenance.v1.json",
+      "bytes": 3659,
+      "sha256": "7b3699b3fbd94918c11f9250f643b6e896a634cbf262d022dc6b56c422a56c5c"
+    },
+    {
+      "file": "intake-runtime-roles.v1.sql",
+      "bytes": 978,
+      "sha256": "54a7a75d8b58f0217cdbc782b450ffc0f256633cb050a509fb930274e17fb9ee"
+    },
+    {
+      "file": "intake-runtime-session.v1.sql",
+      "bytes": 3763,
+      "sha256": "4447e3d2a4477cd66aea754d2eb970d6e92f328c61192bb26edfc054d1768ac6"
+    },
+    {
+      "file": "intake-shop-directory.v1.sql",
+      "bytes": 44220,
+      "sha256": "73254ecac5144e7416e87177e1443944579cbc82ec93ed89273e98e4d1d5d9fc"
+    },
+    {
+      "file": "openapi.v1.yaml",
+      "bytes": 423919,
+      "sha256": "3f741eb980aba1cd9a2a273b25771b50299e1aef3acbc6a1579b57541ed43a94"
+    },
+    {
+      "file": "schema-v1.25.sql",
+      "bytes": 706504,
+      "sha256": "0620ee58a19543736f58b8dcf54ad5a2d0865cd48a74e24a245bbb384f1b7998"
+    }
+  ],
+  "commands": [
+    {
+      "command": "node business-docs/08-工具/export_customer_agent_contract_set.mjs --write --source-git-sha=db6ba13d4780a3abb1558e8673e016f7bfb5604e --expect-openapi-sha256=3f741eb980aba1cd9a2a273b25771b50299e1aef3acbc6a1579b57541ed43a94 --expect-database-sha256=0620ee58a19543736f58b8dcf54ad5a2d0865cd48a74e24a245bbb384f1b7998",
+      "status": "CREATED",
+      "exitCode": 0
+    },
+    {
+      "command": "node business-docs/08-工具/export_customer_agent_contract_set.mjs --verify=output/customer-agent-contract-sets/cs-ai-c11-openapi-1.22.0-schema-1.25-db6ba13d4780 --expect-openapi-sha256=3f741eb980aba1cd9a2a273b25771b50299e1aef3acbc6a1579b57541ed43a94 --expect-database-sha256=0620ee58a19543736f58b8dcf54ad5a2d0865cd48a74e24a245bbb384f1b7998",
+      "status": "VERIFIED",
+      "exitCode": 0
+    }
+  ],
+  "logs": {
+    "output/content-intake-runtime-closure-freeze/actual-export.log": "c262bbc391471ca15e6d307a78e3c98ff98a3b4f70defcad9d3f2aef394a2655",
+    "output/content-intake-runtime-closure-freeze/actual-verify.log": "20a98800452fc25ee5895501e55d971731fcd2867fef91e976ae51c21d65bb94",
+    "output/content-intake-runtime-closure-freeze/release-final.log": "5855d6015c24cbd0fe0dda9fb2b45351b9a516ea9e80f0ae59059b7663dbafaa"
+  },
+  "independentProductRoundtrip": {
+    "status": "PASS",
+    "scope": "disposable intake CLI, verify CLI, real database generator in memory",
+    "intakeStatus": "CREATED",
+    "verifyStatus": "VERIFIED",
+    "runtimeSourceBytesIdentical": true,
+    "migrationCount": 35,
+    "prior34MetadataIdentical": true,
+    "prior34SqlIdentical": true,
+    "comparisonProductCommit": "f6f8cf35ef9a9007cddade8a0c7fa4b648bef9a1",
+    "incrementSha256": "01a674d1f5a996a511babf193c28c217ec91a72a3f974922e9580cf2bcdabda7",
+    "productLockUnchangedByProbe": true,
+    "temporaryDirectoriesRemoved": true,
+    "productRelativeEvidence": {
+      ".gstack/qa-reports/intake-legacy-acl/intake-v4-roundtrip.log": "c3c775b13cb4d2c13773730af2dc6565fede6e2121e38f5900acbc863ac733fe",
+      ".gstack/qa-reports/intake-legacy-acl/verify-v4-roundtrip.mjs": "a50c9115339fd0ce7702d178d8441de1f98e2a9893120344e825a9be2aa803b5"
+    }
+  },
+  "sourceRelease": {
+    "steps": 46,
+    "passed": 46,
+    "genericTests": 299,
+    "genericTestsPassed": 299
+  },
+  "pgEvidence": {
+    "passed": 17,
+    "reused": true,
+    "rerunThisFreeze": false,
+    "unchangedInputs": 18
+  },
+  "machineDraftMetadataPreserved": true,
+  "productConsumedAtExport": false,
+  "formalProductIntakeAndRuntimeVerification": "owned by product repository; not asserted by this export receipt",
+  "runtimeActivated": false,
+  "fullReview": "INCOMPLETE"
+}
