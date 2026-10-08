@@ -277,6 +277,7 @@ export function buildIntakeManagementContractFiles(readSource) {
     sqlContract: 'schema.v1.21', exportApproved: false }) + '\n';
   return { openapi: Buffer.from(openapi), database: base.database };
 }
+export const INTAKE_DIRECT_APPROVAL_PATH = 'business-docs/01-客服Agent项目/90-评审/2026-10-08_P2确认直发合同批准.md';
 export const INTAKE_DIRECT_CONTRACT_PATHS = Object.freeze({
   openapi: `${development}/openapi.v1.20.yaml`, database: `${development}/schema.v1.22.sql`,
   increment: `${development}/17-P2权限配置与确认直发合同候选.md`,

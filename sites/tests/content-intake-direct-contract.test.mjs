@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+import * as builder from '../../business-docs/08-工具/build_customer_agent_backend_contract.mjs';
+import { OWNER_PROFILE_PATH, OWNER_CONTRACT_PATHS } from '../../business-docs/08-工具/build_customer_agent_owner_contract.mjs';
+import { CONTRACT_SOURCE_PATHS, assertIntakeDirectExportGate, loadContractSetFromCommit } from '../../business-docs/08-工具/export_customer_agent_contract_set.mjs';
 import { createHash } from 'node:crypto';
 import Ajv from 'ajv/dist/2020.js';
 import { buildIntakeDirectContractFiles, buildIntakeManagementContractFiles, INTAKE_DIRECT_CONTRACT_PATHS, INTAKE_DIRECT_SOURCES, INTAKE_MANAGEMENT_CONTRACT_PATHS } from '../../business-docs/08-工具/build_customer_agent_backend_contract.mjs';
 const read = file => readFileSync(new URL('../../'+file, import.meta.url));
 const digest = data => createHash('sha256').update(data).digest('hex');
-const generated = buildIntakeDirectContractFiles(read), previous = buildIntakeManagementContractFiles(read);
+const used = new Set();
+const hash = digest;
+const generated = buildIntakeDirectContractFiles(file => { used.add(file); return read(file); }), previous = buildIntakeManagementContractFiles(read);
 const delta = JSON.parse(read(INTAKE_DIRECT_SOURCES.openapi));
 const schemasFrom = bytes => Object.fromEntries(bytes.toString().split('\n').filter(line => /^    Intake[A-Za-z0-9]+: /.test(line)).map(line => { const i=line.indexOf(': ');return [line.slice(4,i),JSON.parse(line.slice(i+2))]; }));
 const pathsFrom = bytes => Object.fromEntries(bytes.toString().split('\n').filter(line => /^  "\/v1\/intake\//.test(line)).map(line => { const i=line.indexOf(': ');return [JSON.parse(line.slice(2,i)),JSON.parse(line.slice(i+2))]; }));
@@ -58,4 +67,88 @@ test('generator rejects missing routes, wrong verbs and unrelated schema changes
   const changed=structuredClone(delta);mutate(changed);
   assert.throws(()=>buildIntakeDirectContractFiles(file=>file===INTAKE_DIRECT_SOURCES.openapi?Buffer.from(JSON.stringify(changed)):read(file)),/Unexpected direct/);
  }
+});
+
+test('direct freeze exports only the exact approved pair and fails closed across drift, missing approval and downgrade history', () => {
+  const repo = mkdtempSync(path.join(tmpdir(), 'intake-direct-export-'));
+  const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  const write = (file, bytes) => {
+    mkdirSync(path.dirname(path.join(repo, file)), { recursive: true });
+    writeFileSync(path.join(repo, file), bytes);
+  };
+  try {
+    const files = new Set([...used, ...Object.values(CONTRACT_SOURCE_PATHS), ...Object.values(OWNER_CONTRACT_PATHS),
+      OWNER_PROFILE_PATH, builder.INTAKE_APPROVAL_PATH, builder.INTAKE_USAGE_APPROVAL_PATH, builder.INTAKE_QUALITY_APPROVAL_PATH, builder.INTAKE_MANAGEMENT_APPROVAL_PATH,
+      'business-docs/01-客服Agent项目/90-评审/2026-09-09_后端合成开发批准.md']);
+    for (const name of ['BACKEND_CONTRACT_PATHS', 'CLOSURE_CONTRACT_PATHS', 'OPS_LOOP_CONTRACT_PATHS',
+      'COACH_PUBLISH_CONTRACT_PATHS', 'INTAKE_CONTRACT_PATHS', 'INTAKE_USAGE_CONTRACT_PATHS', 'INTAKE_QUALITY_CONTRACT_PATHS', 'INTAKE_MANAGEMENT_CONTRACT_PATHS', 'INTAKE_DIRECT_CONTRACT_PATHS']) {
+      for (const file of Object.values(builder[name])) files.add(file);
+    }
+    for (const file of files) write(file, read(file));
+    git('init', '-q'); git('config', 'user.email', 'synthetic@example.invalid'); git('config', 'user.name', 'Synthetic');
+    git('config', 'commit.gpgsign', 'false');
+    const commit = () => { git('add', '--all'); git('commit', '-qm', 'synthetic direct export fixture'); return git('rev-parse', 'HEAD'); };
+    const options = { repository: repo, expectedOpenapiSha256: hash(generated.openapi), expectedDatabaseSha256: hash(generated.database) };
+    const load = () => loadContractSetFromCommit({ ...options, sourceGitSha: commit() });
+    // Build the predecessor history here; a fresh checkout need not contain any
+    // unpublished development commit from the repository that authored this test.
+    write(OWNER_PROFILE_PATH, JSON.stringify({ schema: 'customer-agent-contract-profile/v1', profile: 'content-intake-management-v1' }));
+    const historical = { ...options, sourceGitSha: commit(), expectedOpenapiSha256: hash(previous.openapi), expectedDatabaseSha256: hash(previous.database) };
+    const predecessor = loadContractSetFromCommit(historical);
+    assert.equal(predecessor.manifest.openapi.version, '1.19.0');
+    assert.ok(predecessor.files.get(predecessor.manifest.openapi.file).equals(previous.openapi));
+    assert.throws(() => loadContractSetFromCommit({ ...historical, expectedOpenapiSha256: options.expectedOpenapiSha256 }), /OpenAPI blob 哈希不匹配/);
+    write(OWNER_PROFILE_PATH, JSON.stringify({ schema: 'customer-agent-contract-profile/v1', profile: 'content-intake-direct-v1' }));
+    const rejectShallow = sourceGitSha => {
+      const shallow = mkdtempSync(path.join(tmpdir(), 'intake-direct-shallow-'));
+      try {
+        git('clone', '--quiet', '--depth=1', pathToFileURL(repo).href, shallow);
+        assert.equal(execFileSync('git', ['rev-parse', '--is-shallow-repository'], { cwd: shallow, encoding: 'utf8' }).trim(), 'true');
+        assert.throws(() => loadContractSetFromCommit({ ...options, sourceGitSha, repository: shallow }), /完整 Git 历史/);
+      } finally { rmSync(shallow, { recursive: true, force: true }); }
+    };
+    assert.throws(load, /git rev-parse 失败/, 'direct requires its own approval, not just the quality approval');
+    const approval = read(builder.INTAKE_DIRECT_APPROVAL_PATH).toString();
+    write(builder.INTAKE_DIRECT_APPROVAL_PATH, read(builder.INTAKE_MANAGEMENT_APPROVAL_PATH));
+    assert.throws(load, /双哈希不一致/, 'the previous approved version cannot approve new bytes');
+    write(builder.INTAKE_DIRECT_APPROVAL_PATH, approval.replace('APPROVED · CONTRACT ONLY', 'DRAFT · CONTRACT ONLY'));
+    assert.throws(load, /缺 P2 确认直发合同增量批准/);
+    write(builder.INTAKE_DIRECT_APPROVAL_PATH, approval);
+    const frozen = read(INTAKE_DIRECT_CONTRACT_PATHS.increment).toString();
+    write(INTAKE_DIRECT_CONTRACT_PATHS.increment, frozen.replace('FROZEN · NOT EXPORTED', 'DRAFT · NOT FROZEN · NOT EXPORTED'));
+    assert.throws(load, /未冻结/);
+    write(INTAKE_DIRECT_CONTRACT_PATHS.increment, frozen.replaceAll(options.expectedOpenapiSha256, 'f'.repeat(64)));
+    assert.throws(load, /双哈希不一致/);
+    write(INTAKE_DIRECT_CONTRACT_PATHS.increment, frozen);
+    const sourceGitSha = commit();
+    const exported = loadContractSetFromCommit({ ...options, sourceGitSha });
+    assert.equal(exported.manifest.openapi.version, '1.20.0');
+    assert.equal(exported.manifest.database.version, 'schema.v1.22');
+    assert.ok(exported.files.get(exported.manifest.openapi.file).equals(generated.openapi));
+    assert.ok(exported.files.get(exported.manifest.database.file).equals(generated.database));
+    rejectShallow(sourceGitSha); // Even a valid current pair cannot prove unseen history.
+    assertIntakeDirectExportGate(read, { openapiHash: options.expectedOpenapiSha256, databaseHash: options.expectedDatabaseSha256 });
+    assert.throws(() => loadContractSetFromCommit({ ...options, sourceGitSha, expectedOpenapiSha256: hash(previous.openapi) }), /OpenAPI blob 哈希不匹配/);
+    assert.throws(() => loadContractSetFromCommit({ ...options, sourceGitSha, expectedDatabaseSha256: 'f'.repeat(64) }), /DDL blob 哈希不匹配/);
+    write(builder.INTAKE_DIRECT_APPROVAL_PATH, 'NOT APPROVED');
+    assert.equal(loadContractSetFromCommit({ ...options, sourceGitSha }).manifest.source_git_sha, sourceGitSha, 'dirty worktree cannot replace committed approval');
+    assert.throws(load, /缺 P2/);
+    write(builder.INTAKE_DIRECT_APPROVAL_PATH, approval);
+    const drift = Buffer.concat([generated.openapi, Buffer.from('\n# synthetic drift\n')]);
+    write(INTAKE_DIRECT_CONTRACT_PATHS.openapi, drift);
+    assert.throws(() => loadContractSetFromCommit({ ...options, sourceGitSha: commit(), expectedOpenapiSha256: hash(drift) }), /派生产物漂移/);
+    write(INTAKE_DIRECT_CONTRACT_PATHS.openapi, generated.openapi);
+    const changed = structuredClone(delta); Object.values(changed.paths)[0].post.summary += ' synthetic changed';
+    write(INTAKE_DIRECT_SOURCES.openapi, JSON.stringify(changed));
+    assert.throws(load, /派生产物漂移/, 'matching frozen hashes cannot conceal changed generation sources');
+    write(INTAKE_DIRECT_SOURCES.openapi, read(INTAKE_DIRECT_SOURCES.openapi));
+    write(OWNER_PROFILE_PATH, JSON.stringify({ schema: 'customer-agent-contract-profile/v1', profile: 'content-intake-management-v1' }));
+    assert.throws(load, /拒绝降级 content-intake-direct/);
+    rmSync(path.join(repo, builder.INTAKE_DIRECT_APPROVAL_PATH));
+    const removedApprovalSha = commit();
+    assert.throws(() => loadContractSetFromCommit({ ...options, sourceGitSha: removedApprovalSha }), /拒绝降级 content-intake-direct/, 'deleting the approval does not erase its historical milestone');
+    rejectShallow(removedApprovalSha);
+    rmSync(path.join(repo, OWNER_PROFILE_PATH));
+    assert.throws(load, /删除了既有合同 profile/);
+  } finally { rmSync(repo, { recursive: true, force: true }); }
 });

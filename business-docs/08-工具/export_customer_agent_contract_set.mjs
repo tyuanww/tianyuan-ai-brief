@@ -42,6 +42,9 @@ import {
   INTAKE_MANAGEMENT_CONTRACT_PATHS,
   INTAKE_MANAGEMENT_APPROVAL_PATH,
   buildIntakeManagementContractFiles,
+  INTAKE_DIRECT_CONTRACT_PATHS,
+  INTAKE_DIRECT_APPROVAL_PATH,
+  buildIntakeDirectContractFiles,
 } from "./build_customer_agent_backend_contract.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -49,7 +52,7 @@ const repositoryRoot = path.resolve(path.dirname(scriptPath), "../..");
 const defaultOutputRoot = path.join(repositoryRoot, "output/customer-agent-contract-sets");
 
 export const CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v1";
-export const CONTRACT_SET_TOOL_VERSION = "1.6.0";
+export const CONTRACT_SET_TOOL_VERSION = "1.7.0";
 
 export const CONTRACT_SOURCE_PATHS = Object.freeze({
   architecture: "business-docs/01-客服Agent项目/20-设计-进行中/37-架构SSOT-v1.md",
@@ -328,6 +331,13 @@ export function assertIntakeManagementExportGate(readSource, hashes) {
   });
 }
 
+export function assertIntakeDirectExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths: INTAKE_DIRECT_CONTRACT_PATHS, predecessor: INTAKE_MANAGEMENT_CONTRACT_PATHS,
+    approvalPath: INTAKE_DIRECT_APPROVAL_PATH, label: 'P2 确认直发合同', anchor: '**P2 确认直发机器合同增量：**',
+  });
+}
+
 export function loadContractSetFromCommit({
   repository = repositoryRoot,
   sourceGitSha,
@@ -356,14 +366,16 @@ export function loadContractSetFromCommit({
   let intakeUsageProfile = false;
   let intakeQualityProfile = false;
   let intakeManagementProfile = false;
+  let intakeDirectProfile = false;
   if (ownerProfile) {
     const profile = JSON.parse(utf8(readSource(OWNER_PROFILE_PATH), OWNER_PROFILE_PATH));
     if (Object.keys(profile).sort().join(",") !== "profile,schema"
         || profile.schema !== "customer-agent-contract-profile/v1"
-        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2", "content-intake-usage-v1", "content-intake-quality-v1", "content-intake-management-v1"].includes(profile.profile)) {
+        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2", "content-intake-usage-v1", "content-intake-quality-v1", "content-intake-management-v1", "content-intake-direct-v1"].includes(profile.profile)) {
       throw new Error("未知或不封闭的合同来源 profile");
     }
-    intakeManagementProfile = profile.profile === "content-intake-management-v1";
+    intakeDirectProfile = profile.profile === "content-intake-direct-v1";
+    intakeManagementProfile = intakeDirectProfile || profile.profile === "content-intake-management-v1";
     intakeQualityProfile = intakeManagementProfile || profile.profile === "content-intake-quality-v1";
     intakeUsageProfile = intakeQualityProfile || profile.profile === "content-intake-usage-v1";
     intakeProfile = intakeUsageProfile || profile.profile === "content-intake-v2";
@@ -384,7 +396,10 @@ export function loadContractSetFromCommit({
   if (!intakeUsageProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_USAGE_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-usage profile");
   if (!intakeQualityProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_QUALITY_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-quality profile");
   if (!intakeManagementProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_MANAGEMENT_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-management profile");
-  const sourcePaths = intakeManagementProfile
+  if (!intakeDirectProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_DIRECT_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-direct profile");
+  const sourcePaths = intakeDirectProfile
+    ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_DIRECT_CONTRACT_PATHS.openapi, database: INTAKE_DIRECT_CONTRACT_PATHS.database }
+    : intakeManagementProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_MANAGEMENT_CONTRACT_PATHS.openapi, database: INTAKE_MANAGEMENT_CONTRACT_PATHS.database }
     : intakeQualityProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_QUALITY_CONTRACT_PATHS.openapi, database: INTAKE_QUALITY_CONTRACT_PATHS.database }
@@ -553,9 +568,17 @@ export function loadContractSetFromCommit({
   if (intakeManagementProfile) {
     const generated = buildIntakeManagementContractFiles(readSource);
     for (const key of ["database", "openapi"]) {
-      if (!buffers[key].equals(generated[key])) throw new Error(`P2 管理上下文合同派生产物漂移：${key}`);
+      if (!readSource(INTAKE_MANAGEMENT_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`P2 管理上下文合同派生产物漂移：${key}`);
     }
-    assertIntakeManagementExportGate(readSource, {databaseHash, openapiHash});
+    assertIntakeManagementExportGate(readSource, {databaseHash: sha256(generated.database), openapiHash: sha256(generated.openapi)});
+  }
+
+  if (intakeDirectProfile) {
+    const generated = buildIntakeDirectContractFiles(readSource);
+    for (const key of ["database", "openapi"]) {
+      if (!buffers[key].equals(generated[key])) throw new Error(`P2 确认直发合同派生产物漂移：${key}`);
+    }
+    assertIntakeDirectExportGate(readSource, {databaseHash, openapiHash});
   }
 
   const openapiVersion = extractOpenapiVersion(sources.openapi);

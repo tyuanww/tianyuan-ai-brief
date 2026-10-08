@@ -1,0 +1,232 @@
+{
+  "base": "cae851cd55d07eaa2d1d5ff3f4b2d8c8f4487b06",
+  "environment": {
+    "node": "24.19.0",
+    "syntheticOnly": true
+  },
+  "inputs": {
+    "business-docs/08-工具/build_customer_agent_backend_contract.mjs": "a942750fc427d1fffb870b9bc9e55ba1b799e6ba1e9fa55d42a8a76e54746cc6",
+    "business-docs/08-工具/export_customer_agent_contract_set.mjs": "8ebd2049a51c7e85b05cb68ad1d554c67461cb6def3e381b990cd33b38355a4b",
+    "sites/tests/content-intake-direct-contract.test.mjs": "53440a1bb2f4d20a72a03ecd4404840a203a205b04dc01512b14d018e80dfd8b",
+    "sites/package.json": "8b5b4b7a0b9786d3d3ee56fc15d5c141192d3575cfae24b8c11c7adac06ee29f",
+    "sites/package-lock.json": "57ec56e0c415b56694b64f339d30ea001d77b7b0e4142630fd49cb0ff14039e0",
+    "business-docs/01-客服Agent项目/30-开发-进行中/contract-profile.v1.json": "907f0b954a390feb3b5e875d94757f3f840804fd06d308e00a4bdae891ee771d",
+    "business-docs/01-客服Agent项目/30-开发-进行中/17-P2权限配置与确认直发合同候选.md": "110429e0e5bf053434a2ca34c6f24e5a5568d8d4ef7e4b6388fe7f29379723c5",
+    "business-docs/01-客服Agent项目/90-评审/2026-10-08_P2确认直发合同批准.md": "89b0061e5a80c5800b4b49439f66e54df213a37fdcff5a4468411c3fd0e1d699"
+  },
+  "checks": [
+    {
+      "command": "node --test sites/tests/content-intake-direct-contract.test.mjs",
+      "exitCode": 0,
+      "tests": 7,
+      "log": "targeted"
+    },
+    {
+      "command": "npm --prefix sites run test:release",
+      "exitCode": 0,
+      "steps": [
+        {
+          "step": "test",
+          "seconds": 109.56,
+          "exitCode": 0
+        },
+        {
+          "step": "test:boundary-integration",
+          "seconds": 38.56,
+          "exitCode": 0
+        },
+        {
+          "step": "test:layout-ui",
+          "seconds": 3.34,
+          "exitCode": 0
+        },
+        {
+          "step": "test:ui",
+          "seconds": 70.95,
+          "exitCode": 0
+        },
+        {
+          "step": "test:arch-board-ui",
+          "seconds": 11.78,
+          "exitCode": 0
+        },
+        {
+          "step": "test:business",
+          "seconds": 35.26,
+          "exitCode": 0
+        },
+        {
+          "step": "test:customer-agent-python-tools",
+          "seconds": 3.18,
+          "exitCode": 0
+        },
+        {
+          "step": "lint:openapi",
+          "seconds": 1.0,
+          "exitCode": 0
+        },
+        {
+          "step": "check:owner-contract",
+          "seconds": 0.12,
+          "exitCode": 0
+        },
+        {
+          "step": "lint:owner-openapi",
+          "seconds": 1.02,
+          "exitCode": 0
+        },
+        {
+          "step": "test:backend-candidate",
+          "seconds": 0.37,
+          "exitCode": 0
+        },
+        {
+          "step": "check:backend-contract",
+          "seconds": 17.2,
+          "exitCode": 0
+        },
+        {
+          "step": "lint:backend-openapi",
+          "seconds": 6.18,
+          "exitCode": 0
+        },
+        {
+          "step": "test:ops-loop-candidate",
+          "seconds": 0.36,
+          "exitCode": 0
+        },
+        {
+          "step": "check:ops-loop-contract",
+          "seconds": 0.12,
+          "exitCode": 0
+        },
+        {
+          "step": "lint:ops-loop-openapi",
+          "seconds": 0.8,
+          "exitCode": 0
+        },
+        {
+          "step": "test:coach-publish-candidate",
+          "seconds": 0.27,
+          "exitCode": 0
+        },
+        {
+          "step": "check:coach-publish-contract",
+          "seconds": 0.11,
+          "exitCode": 0
+        },
+        {
+          "step": "lint:coach-publish-openapi",
+          "seconds": 0.84,
+          "exitCode": 0
+        },
+        {
+          "step": "test:intake-contract",
+          "seconds": 25.27,
+          "exitCode": 0
+        },
+        {
+          "step": "check:intake-contract",
+          "seconds": 0.16,
+          "exitCode": 0
+        },
+        {
+          "step": "lint:intake-openapi",
+          "seconds": 0.97,
+          "exitCode": 0
+        },
+        {
+          "step": "test:intake-usage-contract",
+          "seconds": 35.83,
+          "exitCode": 0
+        },
+        {
+          "step": "check:intake-usage-contract",
+          "seconds": 0.17,
+          "exitCode": 0
+        },
+        {
+          "step": "lint:intake-usage-openapi",
+          "seconds": 6.69,
+          "exitCode": 0
+        },
+        {
+          "step": "test:intake-quality-contract",
+          "seconds": 46.19,
+          "exitCode": 0
+        },
+        {
+          "step": "check:intake-quality-contract",
+          "seconds": 0.18,
+          "exitCode": 0
+        },
+        {
+          "step": "lint:intake-quality-openapi",
+          "seconds": 0.78,
+          "exitCode": 0
+        },
+        {
+          "step": "test:intake-management-contract",
+          "seconds": 65.97,
+          "exitCode": 0
+        },
+        {
+          "step": "check:intake-management-contract",
+          "seconds": 0.19,
+          "exitCode": 0
+        },
+        {
+          "step": "lint:intake-management-openapi",
+          "seconds": 1.12,
+          "exitCode": 0
+        },
+        {
+          "step": "test:intake-direct-contract",
+          "seconds": 74.24,
+          "exitCode": 0
+        },
+        {
+          "step": "check:intake-direct-contract",
+          "seconds": 0.19,
+          "exitCode": 0
+        },
+        {
+          "step": "lint:intake-direct-openapi",
+          "seconds": 4.01,
+          "exitCode": 0
+        },
+        {
+          "step": "test:sql-grammar",
+          "seconds": 0.35,
+          "exitCode": 0
+        },
+        {
+          "step": "test:architecture-contract",
+          "seconds": 0.26,
+          "exitCode": 0
+        },
+        {
+          "step": "check:arch-diagrams",
+          "seconds": 1.94,
+          "exitCode": 0
+        },
+        {
+          "step": "audit:deps",
+          "seconds": 0.96,
+          "exitCode": 0
+        }
+      ],
+      "log": "release"
+    }
+  ],
+  "logSha256": {
+    "targeted": "9d7a0b4bdb540c39a646c02e811c5befc188215ab9ef654a3d9534e0ee9bb9b6",
+    "release": "7ac1654623f4ea2dc59ca026f6f116be78a4372394531b580563b76060d33c58"
+  },
+  "review": {
+    "scope": "new freeze/export only",
+    "localCore": "no findings",
+    "independentLocal": "no findings",
+    "historicFullReview": "INCOMPLETE"
+  }
+}
