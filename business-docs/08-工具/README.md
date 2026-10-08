@@ -226,3 +226,7 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 ### P2 管理上下文候选
 
 [管理上下文候选](../01-客服Agent项目/30-开发-进行中/16-P2管理上下文合同候选.md)只增加 OpenAPI 1.19.0 的来源管理读口，复用 schema.v1.21 原字节和既有 principals 选择合同。`build_customer_agent_backend_contract.mjs --write-intake-management / --check-intake-management` 只生成新 OpenAPI并核验旧DDL；`npm --prefix sites run test:intake-management-contract` 验证实际 wire、完整前序不变以及冻结/导出拒绝矩阵。对应检查已接入 machine/release。该增量已按[独立批准](../01-客服Agent项目/90-评审/2026-10-07_P2管理上下文合同批准.md)冻结，profile 为 `content-intake-management-v1`；export 从完整提交校验精确双哈希、冻结规范、批准及生成一致性，批准后拒绝降级到1.18或删除批准/profile绕过。导出必须在具有完整 Git 历史的仓库执行；浅克隆不能证明历史批准，明确拒绝且不自动 fetch。完整历史中的旧提交仍按当时批准导出，机器DRAFT注解和旧冻结字节保留，不启用真实身份或生产运行。
+
+### P2 权限配置与确认直发候选
+
+[确认直发规范](../01-客服Agent项目/30-开发-进行中/17-P2权限配置与确认直发合同候选.md)承接权限配置免审批、资料二次确认后直发的本期决定；OpenAPI1.20.0/schema1.22 当前为 DRAFT，未冻结/export/intake。生成/校验使用 `build_customer_agent_backend_contract.mjs --write-intake-direct / --check-intake-direct`；`npm --prefix sites run test:intake-direct-contract` 验证标准消费、确认字段和旧字节保护，`test:intake-direct-contract:pg` 用隔离PG15复用前序fixture并验证增量迁移、政策关联和不可变确认。check/lint已进入machine/release；当前没有direct export profile，不能借前序批准导出或改变产品运行合同。

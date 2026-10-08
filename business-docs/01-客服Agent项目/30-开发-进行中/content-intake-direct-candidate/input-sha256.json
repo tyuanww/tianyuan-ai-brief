@@ -1,0 +1,11 @@
+{
+  "business-docs/08-工具/build_customer_agent_backend_contract.mjs": "a80c34803787f4a68c5b6230530a3b798b4650dc2e97cf647b6ad24ff2caae52",
+  "sites/package.json": "8b5b4b7a0b9786d3d3ee56fc15d5c141192d3575cfae24b8c11c7adac06ee29f",
+  "sites/scripts/quality-plan.mjs": "a64ae415da6e969acefb572b478c330866bf69c668ca6f5256a1c98f2df7cc66",
+  "sites/tests/content-intake-contract.pg.mjs": "a45cc07104e1c51157c0ce6c22a075975852bc8d4a0736edacdf23f7276ac049",
+  "sites/tests/content-intake-direct-contract.test.mjs": "9cdf3e4cfdae2a6715d7d00761c8823caa72b3a7cde3cbd726f2439e1f7f38de",
+  "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.20.yaml": "1513fe499773c83f4a2b9f0ca8e3a5f7369638f72dc1d18a291235093cfc034d",
+  "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.22.sql": "3b7d7e67fcf18b9d00cbb916220b862b4f6b4f1e942d6bf367d66dd20dd60c0f",
+  "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-direct-candidate/openapi.delta.json": "10681d6e5bad2e2f2459b32a832abb8241b6f10d658ae8dcd9bbe33ceadf9f02",
+  "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-direct-candidate/storage.delta.sql": "4e827fdfa20cf20e48afbb030e1b59f65e4bf846808e30de7dd53dfb7fc88475"
+}

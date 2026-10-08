@@ -1,0 +1,227 @@
+{
+  "base_commit": "240ae98a47d8b9432559c298f60af6fdc9ba8c4e",
+  "environment": {
+    "node": "24.19.0",
+    "pg": "15.18",
+    "fixtures": "synthetic only"
+  },
+  "checks": [
+    {
+      "command": "npm --prefix sites run test:machine-contracts",
+      "exit_code": 0,
+      "log_key": "machine",
+      "log_sha256": "a04992fc6a39bb06b6c4443edfa31505bc203ec1e80cac80e908a38668ce8a66"
+    },
+    {
+      "command": "npm --prefix sites run test:release",
+      "exit_code": 0,
+      "log_key": "release",
+      "log_sha256": "6f6b916d21224434009e43cc8765a7c92604e13f5497de3da2d982170774fec8",
+      "steps": [
+        {
+          "script": "test",
+          "seconds": 125.3,
+          "exit_code": 0
+        },
+        {
+          "script": "test:boundary-integration",
+          "seconds": 50.24,
+          "exit_code": 0
+        },
+        {
+          "script": "test:layout-ui",
+          "seconds": 4.59,
+          "exit_code": 0
+        },
+        {
+          "script": "test:ui",
+          "seconds": 73.85,
+          "exit_code": 0
+        },
+        {
+          "script": "test:arch-board-ui",
+          "seconds": 12.42,
+          "exit_code": 0
+        },
+        {
+          "script": "test:business",
+          "seconds": 36.7,
+          "exit_code": 0
+        },
+        {
+          "script": "test:customer-agent-python-tools",
+          "seconds": 3.23,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:openapi",
+          "seconds": 0.98,
+          "exit_code": 0
+        },
+        {
+          "script": "check:owner-contract",
+          "seconds": 0.14,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:owner-openapi",
+          "seconds": 0.8,
+          "exit_code": 0
+        },
+        {
+          "script": "test:backend-candidate",
+          "seconds": 0.36,
+          "exit_code": 0
+        },
+        {
+          "script": "check:backend-contract",
+          "seconds": 16.96,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:backend-openapi",
+          "seconds": 0.81,
+          "exit_code": 0
+        },
+        {
+          "script": "test:ops-loop-candidate",
+          "seconds": 0.31,
+          "exit_code": 0
+        },
+        {
+          "script": "check:ops-loop-contract",
+          "seconds": 0.11,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:ops-loop-openapi",
+          "seconds": 0.79,
+          "exit_code": 0
+        },
+        {
+          "script": "test:coach-publish-candidate",
+          "seconds": 0.27,
+          "exit_code": 0
+        },
+        {
+          "script": "check:coach-publish-contract",
+          "seconds": 0.18,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:coach-publish-openapi",
+          "seconds": 0.9,
+          "exit_code": 0
+        },
+        {
+          "script": "test:intake-contract",
+          "seconds": 25.01,
+          "exit_code": 0
+        },
+        {
+          "script": "check:intake-contract",
+          "seconds": 0.16,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:intake-openapi",
+          "seconds": 0.8,
+          "exit_code": 0
+        },
+        {
+          "script": "test:intake-usage-contract",
+          "seconds": 34.29,
+          "exit_code": 0
+        },
+        {
+          "script": "check:intake-usage-contract",
+          "seconds": 0.16,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:intake-usage-openapi",
+          "seconds": 0.78,
+          "exit_code": 0
+        },
+        {
+          "script": "test:intake-quality-contract",
+          "seconds": 45.23,
+          "exit_code": 0
+        },
+        {
+          "script": "check:intake-quality-contract",
+          "seconds": 0.17,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:intake-quality-openapi",
+          "seconds": 1.2,
+          "exit_code": 0
+        },
+        {
+          "script": "test:intake-management-contract",
+          "seconds": 65.14,
+          "exit_code": 0
+        },
+        {
+          "script": "check:intake-management-contract",
+          "seconds": 0.18,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:intake-management-openapi",
+          "seconds": 0.96,
+          "exit_code": 0
+        },
+        {
+          "script": "test:intake-direct-contract",
+          "seconds": 0.67,
+          "exit_code": 0
+        },
+        {
+          "script": "check:intake-direct-contract",
+          "seconds": 0.15,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:intake-direct-openapi",
+          "seconds": 0.78,
+          "exit_code": 0
+        },
+        {
+          "script": "test:sql-grammar",
+          "seconds": 0.32,
+          "exit_code": 0
+        },
+        {
+          "script": "test:architecture-contract",
+          "seconds": 0.3,
+          "exit_code": 0
+        },
+        {
+          "script": "check:arch-diagrams",
+          "seconds": 1.88,
+          "exit_code": 0
+        },
+        {
+          "script": "audit:deps",
+          "seconds": 1.05,
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "command": "test:intake-direct-contract + check:intake-direct-contract + lint:intake-direct-openapi",
+      "exit_code": 0,
+      "log_key": "targeted",
+      "log_sha256": "e43d5ddcd957080ff6a727ce91ecfee866d8c732dfce3037258dea68a12b0536"
+    },
+    {
+      "command": "PG_BIN=<local PG15 binary directory> npm --prefix sites run test:intake-direct-contract:pg",
+      "exit_code": 0,
+      "checks": 112,
+      "result": "pg-summary.json",
+      "scope": "migration/storage/authorization only; no new direct publisher runtime"
+    }
+  ]
+}

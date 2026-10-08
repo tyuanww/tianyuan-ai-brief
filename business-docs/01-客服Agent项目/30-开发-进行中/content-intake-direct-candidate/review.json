@@ -1,0 +1,13 @@
+{
+  "scope": "DRAFT direct contract delta after governance 240ae98; no runtime or real data integration",
+  "native": "completed; one P2 fixed and re-reviewed closed",
+  "finding": {
+    "severity": "P2",
+    "description": "Disabled review POSTs still advertised 202 success",
+    "resolution": "Removed 2xx from all four POSTs, marked summaries disabled; regression assertion added; old contract unchanged",
+    "final_status": "closed"
+  },
+  "core": "no unresolved actionable findings",
+  "outside": "not invoked; prior session bounded attempts timed out; no outside approval claimed",
+  "overall": "INCOMPLETE outside coverage; draft is not formal approval"
+}

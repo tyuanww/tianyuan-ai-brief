@@ -277,6 +277,48 @@ export function buildIntakeManagementContractFiles(readSource) {
     sqlContract: 'schema.v1.21', exportApproved: false }) + '\n';
   return { openapi: Buffer.from(openapi), database: base.database };
 }
+export const INTAKE_DIRECT_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.20.yaml`, database: `${development}/schema.v1.22.sql`,
+  increment: `${development}/17-P2权限配置与确认直发合同候选.md`,
+});
+export const INTAKE_DIRECT_SOURCES = Object.freeze({
+  openapi: `${development}/content-intake-direct-candidate/openapi.delta.json`,
+  storage: `${development}/content-intake-direct-candidate/storage.delta.sql`,
+});
+
+/** Versioned draft only. Replace existing intake wire, preserving the exact
+ * approved predecessor files. No export profile or activation is implied. */
+export function buildIntakeDirectContractFiles(readSource) {
+  const base = buildIntakeManagementContractFiles(readSource);
+  const delta = JSON.parse(readSource(INTAKE_DIRECT_SOURCES.openapi));
+  let openapi = base.openapi.toString('utf8');
+  const replaceLine = (prefix, value) => {
+    const matches = openapi.split('\n').filter(line => line.startsWith(prefix));
+    if (matches.length !== 1) throw new Error(`Non-unique direct predecessor: ${prefix}`);
+    openapi = openapi.replace(matches[0] + '\n', prefix + JSON.stringify(value) + '\n');
+  };
+  if (openapi.split('  version: 1.19.0\n').length !== 2) throw new Error('Direct predecessor must be 1.19.0');
+  openapi = openapi.replace('  version: 1.19.0\n', '  version: 1.20.0\n');
+  const allowedSchemas = ['IntakePublish','IntakeRollback','IntakeCandidate'];
+  if (Object.keys(delta.components.schemas).sort().join() !== allowedSchemas.sort().join()) throw new Error('Unexpected direct schemas');
+  for (const [name,schema] of Object.entries(delta.components.schemas)) replaceLine(`    ${name}: `,schema);
+  const expectedRoutes = ['/v1/intake/candidates/{candidateId}/versions/{version}/publish',
+    '/v1/intake/candidates/{candidateId}/versions/{version}/review',
+    '/v1/intake/candidates/{candidateId}/versions/{version}/review/refresh',
+    '/v1/intake/rollback', '/v1/intake/rollback/{rollbackPlanId}/review',
+    '/v1/intake/rollback/{rollbackPlanId}/review/refresh'];
+  if (Object.keys(delta.paths).sort().join() !== expectedRoutes.sort().join()) throw new Error('Unexpected direct routes');
+  for (const [route,item] of Object.entries(delta.paths)) {
+    const methods = route.endsWith('/review') ? 'get,post' : 'post';
+    if (Object.keys(item).sort().join() !== methods) throw new Error('Unexpected direct method');
+    replaceLine(`  ${JSON.stringify(route)}: `,Object.fromEntries(Object.entries(item).map(([method,op]) => [method,{...op,security:[{ProductSession:[]}]}])));
+  }
+  openapi += '\nx-content-intake-direct-development: ' + JSON.stringify({status:'DRAFT',runtime_activated:false,
+    sqlContract:'schema.v1.22',exportApproved:false,transactionImplementationRequired:true}) + '\n';
+  const storage=readSource(INTAKE_DIRECT_SOURCES.storage);
+  return {openapi:Buffer.from(openapi),database:Buffer.concat([Buffer.from('-- schema.v1.22 — DRAFT confirmed direct publication\n'),
+    base.database,Buffer.from(`\n-- BEGIN INTAKE DIRECT ${digest(storage)}\n`),storage,Buffer.from('-- END INTAKE DIRECT\n')])};
+}
 const PUBLISH_OWNER_ONLY = `      operationId: publishContent
       summary: 将 staged 批次发布为新的 current release
       description: |
@@ -359,18 +401,19 @@ export function buildOpsLoopContractFiles(readSource) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish','--write-intake','--check-intake','--write-intake-usage','--check-intake-usage','--write-intake-quality','--check-intake-quality','--write-intake-management','--check-intake-management'];
+  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish','--write-intake','--check-intake','--write-intake-usage','--check-intake-usage','--write-intake-quality','--check-intake-quality','--write-intake-management','--check-intake-management','--write-intake-direct','--check-intake-direct'];
   if (args.length !== 1 || !allowed.includes(args[0])) throw new Error(`Use exactly one of: ${allowed.join(', ')}`);
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   const coachPublish = args[0].endsWith('-coach-publish');
   const intake = args[0].endsWith('-intake');
   const usage = args[0].endsWith('-intake-usage');
   const quality = args[0].endsWith('-intake-quality');
+  const direct = args[0].endsWith('-intake-direct');
   const management = args[0].endsWith('-intake-management');
   const opsLoop = args[0].endsWith('-ops-loop');
   const closure = args[0].endsWith('-closure');
-  const files = (management ? buildIntakeManagementContractFiles : quality ? buildIntakeQualityContractFiles : usage ? buildIntakeUsageContractFiles : intake ? buildIntakeContractFiles : coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
-  const paths = management ? INTAKE_MANAGEMENT_CONTRACT_PATHS : quality ? INTAKE_QUALITY_CONTRACT_PATHS : usage ? INTAKE_USAGE_CONTRACT_PATHS : intake ? INTAKE_CONTRACT_PATHS : coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
+  const files = (direct ? buildIntakeDirectContractFiles : management ? buildIntakeManagementContractFiles : quality ? buildIntakeQualityContractFiles : usage ? buildIntakeUsageContractFiles : intake ? buildIntakeContractFiles : coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
+  const paths = direct ? INTAKE_DIRECT_CONTRACT_PATHS : management ? INTAKE_MANAGEMENT_CONTRACT_PATHS : quality ? INTAKE_QUALITY_CONTRACT_PATHS : usage ? INTAKE_USAGE_CONTRACT_PATHS : intake ? INTAKE_CONTRACT_PATHS : coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
   for (const [key,bytes] of Object.entries(files)) {
     const target = path.join(root,paths[key]);
     if (args[0].startsWith('--write') && !((quality || management) && key === 'database')) writeFileSync(target,bytes);

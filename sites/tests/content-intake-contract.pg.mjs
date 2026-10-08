@@ -7,8 +7,9 @@ import {fileURLToPath} from 'node:url';
 
 // Disposable Unix-socket-only PG15. Never inherit a user's database connection.
 const argsIn=process.argv.slice(2);
-assert.ok(argsIn.length===0 || (argsIn.length===1 && argsIn[0]==='--usage'),'only --usage is supported');
-const usage=argsIn[0]==='--usage';
+assert.ok(argsIn.length===0 || (argsIn.length===1 && ['--usage','--direct'].includes(argsIn[0])),'only --usage or --direct is supported');
+const direct=argsIn[0]==='--direct';
+const usage=direct || argsIn[0]==='--usage';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const env={...process.env,PGCONNECT_TIMEOUT:'5'};
 for(const key of Object.keys(env)) if(key.startsWith('PG') && key!=='PGCONNECT_TIMEOUT') delete env[key];
@@ -16,7 +17,7 @@ const bin=process.env.PG_BIN || execFileSync('pg_config',['--bindir'],{encoding:
 const run=(name,args)=>execFileSync(path.join(bin,name),args,{cwd:root,encoding:'utf8',env,maxBuffer:8*1024*1024,timeout:60000,stdio:['ignore','pipe','pipe']});
 assert.match(run('postgres',['--version']),/PostgreSQL\) 15\./);
 const dir=mkdtempSync(path.join(tmpdir(),'intake-contract-'));
-const evidence=path.join(root,usage?'output/content-intake-usage-contract':'output/content-intake-contract');mkdirSync(evidence,{recursive:true});
+const evidence=path.join(root,direct?'output/content-intake-direct-contract':usage?'output/content-intake-usage-contract':'output/content-intake-contract');mkdirSync(evidence,{recursive:true});
 const args=['-X','-h',dir,'-p','55443','-d','postgres','-v','ON_ERROR_STOP=1'];
 const sql=q=>run('psql',[...args,'-Atc',q]).trim();
 const quote=v=>`'${String(v).replaceAll("'","''")}'`;
@@ -108,6 +109,49 @@ try {
  // are temporary FK targets; every probe rolls back before their deferred completeness gate.
  const releases=`INSERT INTO public.content_releases(release_id,release_seq,status,source_binding_hash,tenant_id) VALUES ('release-a',1,'published','${hash}','tenant'),('release-b',2,'published','${hash}','tenant');
  INSERT INTO public.announcements(announcement_id,release_id,title) VALUES ('announcement-a','release-a','合成A'),('announcement-b','release-b','合成B');`;
+ if(direct) {
+  // Migrate populated predecessor, not an empty schema: old candidate bytes and
+  // constraints must survive while new direct rows omit reviewer evidence.
+  const oldCandidate=sql("SELECT to_jsonb(c)::text FROM content_intake.candidate_versions c WHERE candidate_id='candidate-a'");
+  writeFileSync(path.join(evidence,'migration.log'),run('psql',[...args,'-f','business-docs/01-客服Agent项目/30-开发-进行中/content-intake-direct-candidate/storage.delta.sql']));checks++;
+  assert.equal(sql("SELECT (to_jsonb(c)-'publication_policy')::text FROM content_intake.candidate_versions c WHERE candidate_id='candidate-a'"),oldCandidate);checks++;
+  assert.equal(sql("SELECT publication_policy FROM content_intake.candidate_versions WHERE candidate_id='candidate-a'"),'approval-v1');checks++;
+  denies('legacy policy cannot be rewritten',"UPDATE content_intake.candidate_versions SET publication_policy='direct-v1' WHERE candidate_id='candidate-a'",/MATERIAL_CHANGED/);
+  denies('legacy still requires approval',"UPDATE content_intake.candidate_versions SET state='ready' WHERE candidate_id='candidate-a'",/check constraint/);
+  const directCandidate=insertCandidate('direct-a').replace('created_at,updated_at)', 'created_at,updated_at,publication_policy)').replace('clock_timestamp(),clock_timestamp())',"clock_timestamp(),clock_timestamp(),'direct-v1')")+';';
+  const confirmation=`INSERT INTO content_intake.source_confirmations SELECT candidate_id,version,digest,'source-a',1,0,'integer','2','controlled-synthetic-export','manager',clock_timestamp(),'${hash}' FROM content_intake.candidate_versions WHERE candidate_id='direct-a';
+   UPDATE content_intake.candidate_versions SET source_evidence_version=1,state='ready' WHERE candidate_id='direct-a';`;
+  const directAttempt=`INSERT INTO content_intake.write_attempts(actor_id,operation_id,action,candidate_id,candidate_version,candidate_digest,payload_digest,source_evidence_version,state,created_at,publication_policy)
+   SELECT 'manager','direct-op','publish',candidate_id,version,digest,'${hash}',1,'pending',clock_timestamp(),'direct-v1' FROM content_intake.candidate_versions WHERE candidate_id='direct-a';`;
+  const directTicket=`INSERT INTO content_intake.commit_tickets(ticket_hash,actor_id,action,operation_id,candidate_generation,actor_facts_version,actor_generation,issued_at,expires_at,publication_policy)
+   VALUES ('${hash}','manager','publish','direct-op',0,1,0,clock_timestamp(),clock_timestamp()+interval '50 seconds','direct-v1');`;
+  const directSetup=directCandidate+confirmation+directAttempt+directTicket;
+  sql('BEGIN; '+directSetup+' ROLLBACK');checks++;
+  denies('direct cannot ready without source',directCandidate+"UPDATE content_intake.candidate_versions SET state='ready' WHERE candidate_id='direct-a'",/check constraint/);
+  denies('direct cannot claim approval',directCandidate+"UPDATE content_intake.candidate_versions SET approval_evidence_version=1 WHERE candidate_id='direct-a'",/check constraint/);
+  denies('attempt cannot cross publication policy',directCandidate+confirmation+directAttempt.replace("'direct-v1'","'approval-v1'"),/check constraint|foreign key/);
+  denies('direct ticket cannot contain fake reviewer',directCandidate+confirmation+directAttempt+directTicket.replace('expires_at,publication_policy)', 'expires_at,publication_policy,reviewer_facts_version)').replace("'direct-v1');","'direct-v1',1);"),/check constraint/);
+  denies('direct ticket remains bounded',directSetup.replace("interval '50 seconds'","interval '61 seconds'"),/check constraint/);
+  denies('direct ticket cannot rewrite policy',directSetup+"UPDATE content_intake.commit_tickets SET publication_policy='approval-v1'",/TICKET_IMMUTABLE_OR_CONSUMED/);
+  denies('direct attempt cannot rewrite policy',directSetup+"UPDATE content_intake.write_attempts SET publication_policy='approval-v1' WHERE operation_id='direct-op'",/OPERATION_IMMUTABLE/);
+  const publication=`INSERT INTO content_intake.publications(candidate_id,candidate_version,actor_id,action,operation_id,release_id,announcement_id,publication_policy,confirmed_at)
+   VALUES ('direct-a',1,'manager','publish','direct-op','release-a','announcement-a','direct-v1',clock_timestamp());`;
+  const lineage=`INSERT INTO content_intake.release_catalogs(release_id,format_version) VALUES ('release-a','intake-v2.1');
+   INSERT INTO content_intake.release_lineage(release_id,source_id,business_entry_id,script_version,candidate_id,candidate_version,content_valid_until,publication_policy)
+   VALUES ('release-a','source-a','entry-a',1,'direct-a',1,clock_timestamp()+interval '1 day','direct-v1');`;
+  sql('BEGIN; '+releases+directSetup+publication+lineage+' ROLLBACK');checks++;
+  denies('direct publication requires confirmation time',releases+directSetup+publication.replace("'direct-v1',clock_timestamp()","'direct-v1',NULL"),/check constraint/);
+  denies('confirmation cannot be infinite',releases+directSetup+publication.replace("'direct-v1',clock_timestamp()","'direct-v1','infinity'"),/check constraint/);
+  denies('publication confirmation is immutable',releases+directSetup+publication+"UPDATE content_intake.publications SET confirmed_at=confirmed_at+interval '1 second'",/INTAKE_HISTORY_IMMUTABLE/);
+  denies('lineage cannot cross policy',releases+directSetup+lineage.replace("'direct-v1'","'approval-v1'"),/check constraint|foreign key/);
+  const directRollback=`${releases} INSERT INTO content_intake.rollback_plans VALUES ('direct-plan','release-b','release-a','${hash}','manager',clock_timestamp());
+   INSERT INTO content_intake.write_attempts(actor_id,operation_id,action,rollback_plan_id,impact_digest,payload_digest,base_release_id,state,created_at,publication_policy)
+   VALUES ('manager','direct-rollback','rollback','direct-plan','${hash}','${hash}','release-b','pending',clock_timestamp(),'direct-v1');
+   INSERT INTO content_intake.publications(rollback_plan_id,actor_id,action,operation_id,release_id,announcement_id,publication_policy,confirmed_at)
+   VALUES ('direct-plan','manager','rollback','direct-rollback','release-a','announcement-a','direct-v1',clock_timestamp());`;
+  sql('BEGIN; '+directRollback+' ROLLBACK');checks++;
+  denies('direct rollback requires confirmation',directRollback.replace("'direct-v1',clock_timestamp()","'direct-v1',NULL"),/check constraint/);
+ }
  const rollback=`${releases}
  INSERT INTO content_intake.rollback_plans VALUES ('plan','release-b','release-a','${hash}','manager',clock_timestamp());
  INSERT INTO content_intake.rollback_scopes VALUES ('plan','source-a'),('plan','source-b');
