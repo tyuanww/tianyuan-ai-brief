@@ -12,6 +12,7 @@
 | [`storage.delta.sql`](storage.delta.sql) | 为图片对象、候选附件链接、发布附件快照增加独立的 additive schema 候选；不修改现有 XLSX 对象表 |
 | [`protocol.json`](protocol.json) | 固化 `sop-xlsx-v1` 的输入格式、行文字、六表和解析失败边界 |
 | [`review-gate.md`](review-gate.md) | 列出冻结、导出和产品 intake 前必须由治理仓确认的六项合同决定与最小证据包 |
+| [`checks.json`](checks.json) | 固定本候选输入 SHA-256、检查命令结果和明确未覆盖的正式接入门禁 |
 
 ## 关键不变量
 
@@ -43,6 +44,7 @@
 - `node -e 'JSON.parse(fs.readFileSync("protocol.json"))'`：验证输入协议可解析。
 - SQL 静态检查：确认只创建 `sop_*` 增量表、只接受三种图片 MIME、无应用角色 `GRANT`，并保留 `BEGIN/COMMIT`。
 - `npm --prefix sites run test:intake-sop-media-boundary`：用 Node test 和 `@libpg-query/parser` 重复验证 DRAFT 状态、六个工作表名称在协议与媒体引用中的一致性、七条路径、错误恢复面、三张 `sop_*` 表、三种图片 MIME 和封闭 ACL。
+- `checks.json`：机器可读地固定上述输入哈希和退出码；测试会在候选字节漂移时失败。
 - `npm --prefix sites run test:docs:fast`：验证文档和本候选没有空白错误。
 - 2026-10-10 的 `npm --prefix sites run test:release` 已完成并退出 0；既有 release 质量计划的测试、边界、机器合同、架构和依赖审计均通过，Redocly 的历史非阻断 warning 保留。由于本候选尚未接入生成器 profile，这次 release 不被写成 SOP 媒体合同的冻结或产品消费证据。
 - 不运行真实 PostgreSQL 安装、真实对象存储、真实飞书或生产 HTTP；正式 release 必须在合同获批准、生成器接线和冻结 profile 后重新执行。

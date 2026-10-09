@@ -1,0 +1,53 @@
+{
+  "schema": "customer-agent-content-intake-sop-candidate-checks/v1",
+  "recordedOn": "2026-10-10",
+  "sourceCommit": "985bc5e",
+  "status": {
+    "protocol": "DRAFT",
+    "exportApproved": false,
+    "intakeApproved": false,
+    "productionConsumerReady": false,
+    "syntheticOnly": true
+  },
+  "inputs": {
+    "protocol.json": "b804c07d8f0c4c01a6c9cff0ad03c8684521a1e3103feef694f6e44d7a5e6bcc",
+    "openapi.delta.json": "0b6cdd8897e2d15f2989570c8d1b94748b6676a31fcc146a74c77f6f849ef674",
+    "storage.delta.sql": "aa03938349ac8473eb6fbe9e75e0b1c0b00b70dc1deeee14b5b6d457794f9c17",
+    "review-gate.md": "bc433200ef376d70e8c446f44eded97b419613b3b26b18b4e6a9c00f19e139e7",
+    "boundary-verification.md": "38fdf058289381a1409f936872892d192ceda3750df3941fceb5fdc1d599bc96"
+  },
+  "checks": [
+    {
+      "command": "npm --prefix sites run test:intake-sop-media-boundary",
+      "exitCode": 0,
+      "result": "3 passed, 0 failed",
+      "scope": "protocol and media-reference worksheet enum, seven paths, failure recovery, three additive tables and closed ACL"
+    },
+    {
+      "command": "npm --prefix sites run test:docs:fast",
+      "exitCode": 0,
+      "result": "passed",
+      "scope": "candidate documentation diff formatting"
+    },
+    {
+      "command": "npm --prefix sites run test:release",
+      "exitCode": 0,
+      "result": "passed; audit:deps reported 0 vulnerabilities",
+      "scope": "governance repository release quality plan; historical Redocly warnings remain non-blocking"
+    },
+    {
+      "command": "/Users/hutou/.gstack/repos/gstack/bin/gstack-redact --repo-visibility public --staged",
+      "exitCode": 0,
+      "result": "HIGH=0 MEDIUM=0 LOW=0 WARN=0",
+      "scope": "staged candidate changes"
+    }
+  ],
+  "notEvidenceOf": [
+    "formal contract freeze",
+    "export receipt",
+    "product intake receipt",
+    "production HTTP or database installation",
+    "real Feishu binding or customer data",
+    "production runner activation"
+  ]
+}

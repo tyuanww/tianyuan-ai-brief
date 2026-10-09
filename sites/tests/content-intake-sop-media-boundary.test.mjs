@@ -7,6 +7,7 @@ const root = new URL('../../', import.meta.url);
 const read = path => readFileSync(new URL(path, root));
 const protocol = JSON.parse(read('business-docs/01-客服Agent项目/30-开发-进行中/content-intake-sop-candidate/protocol.json'));
 const wire = JSON.parse(read('business-docs/01-客服Agent项目/30-开发-进行中/content-intake-sop-candidate/openapi.delta.json'));
+const checks = JSON.parse(read('business-docs/01-客服Agent项目/30-开发-进行中/content-intake-sop-candidate/checks.json'));
 const sql = read('business-docs/01-客服Agent项目/30-开发-进行中/content-intake-sop-candidate/storage.delta.sql').toString();
 
 const sheets = [
@@ -34,6 +35,20 @@ test('SOP candidate stays synthetic and unapproved', () => {
   assert.deepEqual(wire.schemas.SopMediaRef.fields.sheet.enum, sheets);
   assert.deepEqual(protocol.media.extensions.sort(), ['gif', 'jpeg', 'png']);
   assert.deepEqual(wire.schemas.SopMediaRef.fields.mime, 'image/png|image/jpeg|image/gif');
+  assert.equal(checks.status.protocol, 'DRAFT');
+  assert.equal(checks.status.exportApproved, false);
+  assert.equal(checks.status.intakeApproved, false);
+  assert.equal(checks.status.productionConsumerReady, false);
+  assert.equal(checks.status.syntheticOnly, true);
+});
+
+test('SOP evidence ledger still matches the candidate bytes', async () => {
+  const { createHash } = await import('node:crypto');
+  for (const [relative, expected] of Object.entries(checks.inputs)) {
+    const digest = createHash('sha256').update(read(`business-docs/01-客服Agent项目/30-开发-进行中/content-intake-sop-candidate/${relative}`)).digest('hex');
+    assert.equal(digest, expected, relative);
+  }
+  assert.equal(checks.checks.every(item => item.exitCode === 0), true);
 });
 
 test('SOP media boundary covers the complete recovery surface', () => {
