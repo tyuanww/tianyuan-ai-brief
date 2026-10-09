@@ -41,6 +41,7 @@
 - `node -e 'JSON.parse(fs.readFileSync("openapi.delta.json"))'`：验证机器候选可解析。
 - `node -e 'JSON.parse(fs.readFileSync("protocol.json"))'`：验证输入协议可解析。
 - SQL 静态检查：确认只创建 `sop_*` 增量表、只接受三种图片 MIME、无应用角色 `GRANT`，并保留 `BEGIN/COMMIT`。
+- `npm --prefix sites run test:intake-sop-media-boundary`：用 Node test 和 `@libpg-query/parser` 重复验证 DRAFT 状态、七条路径、错误恢复面、三张 `sop_*` 表、三种图片 MIME 和封闭 ACL。
 - `npm --prefix sites run test:docs:fast`：验证文档和本候选没有空白错误。
 - 2026-10-10 的 `npm --prefix sites run test:release` 已完成并退出 0；既有 release 质量计划的测试、边界、机器合同、架构和依赖审计均通过，Redocly 的历史非阻断 warning 保留。由于本候选尚未接入生成器 profile，这次 release 不被写成 SOP 媒体合同的冻结或产品消费证据。
 - 不运行真实 PostgreSQL 安装、真实对象存储、真实飞书或生产 HTTP；正式 release 必须在合同获批准、生成器接线和冻结 profile 后重新执行。

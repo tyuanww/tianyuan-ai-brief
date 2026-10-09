@@ -83,6 +83,7 @@
     "lint:intake-shop-directory-openapi": "redocly lint ../business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.21.yaml",
     "test:intake-shop-directory-contract:pg": "node tests/content-intake-shop-directory-contract.pg.mjs",
     "test:intake-csv-contract": "node --test tests/content-intake-csv-contract.test.mjs tests/content-intake-csv-export.test.mjs",
+    "test:intake-sop-media-boundary": "node --test tests/content-intake-sop-media-boundary.test.mjs",
     "check:intake-csv-contract": "node ../business-docs/08-工具/build_customer_agent_csv_contract.mjs --check",
     "lint:intake-csv-openapi": "redocly lint ../business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.22.yaml",
     "test:intake-csv-contract:pg": "node tests/content-intake-csv-contract.pg.mjs",
