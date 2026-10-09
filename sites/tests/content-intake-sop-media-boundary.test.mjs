@@ -78,10 +78,44 @@ test('SOP storage candidate parses and remains closed to application grants', as
   const parser = createRequire(import.meta.url)('@libpg-query/parser');
   await parser.loadModule();
   const parsed = parser.parseSync(sql);
+  const createByName = new Map(parsed.stmts
+    .map(item => item.stmt?.CreateStmt)
+    .filter(Boolean)
+    .map(stmt => [stmt.relation.relname, stmt]));
+  const constraints = stmt => (stmt.tableElts ?? []).flatMap(item => {
+    if (item.Constraint) return [item.Constraint];
+    return (item.ColumnDef?.constraints ?? []).map(item => item.Constraint).filter(Boolean);
+  });
+  const fkSignature = constraint => {
+    const target = `${constraint.pktable.schemaname}.${constraint.pktable.relname}`;
+    const attrs = values => (values ?? []).map(item => item.String.sval).join(',');
+    return `${target}|${attrs(constraint.fk_attrs)}->${attrs(constraint.pk_attrs)}`;
+  };
   const tables = parsed.stmts
     .map(item => item.stmt?.CreateStmt?.relation?.relname)
     .filter(Boolean);
   assert.deepEqual(tables.sort(), ['sop_candidate_media', 'sop_media_objects', 'sop_release_media'].sort());
+  assert.deepEqual(new Set(constraints(createByName.get('sop_media_objects'))
+    .filter(item => item.contype === 'CONSTR_FOREIGN')
+    .map(fkSignature)), new Set([
+      'content_intake.sources|->',
+      'content_intake.principals|->',
+      'content_intake.principals|actor_id,tenant_id,app_id->principal_id,tenant_id,app_id',
+    ]));
+  assert.deepEqual(new Set(constraints(createByName.get('sop_candidate_media'))
+    .filter(item => item.contype === 'CONSTR_FOREIGN')
+    .map(fkSignature)), new Set([
+      'content_intake.sop_media_objects|->media_object_id',
+      'content_intake.candidate_versions|candidate_id,candidate_version,source_id->candidate_id,version,source_id',
+      'content_intake.sop_media_objects|media_object_id,source_id,sha256,bytes,mime->media_object_id,source_id,sha256,bytes,mime',
+    ]));
+  assert.deepEqual(new Set(constraints(createByName.get('sop_release_media'))
+    .filter(item => item.contype === 'CONSTR_FOREIGN')
+    .map(fkSignature)), new Set([
+      'public.content_releases|->',
+      'content_intake.sop_media_objects|->media_object_id',
+      'content_intake.sop_candidate_media|candidate_id,candidate_version,source_id,media_object_id,sheet_name,row_number,column_number,row_id,ordinal,sha256,mime->candidate_id,candidate_version,source_id,media_object_id,sheet_name,row_number,column_number,row_id,ordinal,sha256,mime',
+    ]));
   assert.equal(parsed.stmts.some(item => item.stmt?.GrantStmt?.is_grant === true), false);
   // libpg-query represents REVOKE as GrantStmt with DROP_RESTRICT behavior.
   assert.equal(parsed.stmts.some(item => item.stmt?.GrantStmt?.behavior === 'DROP_RESTRICT'), true);
