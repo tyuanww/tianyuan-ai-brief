@@ -33,6 +33,7 @@
 
 1. 评审并批准本候选的格式与失败语义。
 2. 另行设计并批准 HTTP、存储、附件对象生命周期、来源绑定及发布／回退的机器增量；不得直接修改冻结的 1.22/1.24 或旧 `ops-loop` 字节。
+   本轮已形成仍为 DRAFT 的 [`openapi.delta.json`](openapi.delta.json)、[`storage.delta.sql`](storage.delta.sql) 和 [`boundary-verification.md`](boundary-verification.md)。它们只描述候选边界：复用既有上传/候选/发布/回退/operationId 路径，新增 SOP 图片对象与发布快照引用，并要求当前资格保护的媒体预览；没有正式版本号、迁移号或应用授权。
 3. 由生成器产生版本化 OpenAPI／schema／installation，并分别完成冻结、export 和产品 intake 回执。
 4. 产品 runner 以固定 `sop-xlsx-v1` 选择解析器，校验子进程输出，覆盖取消、超时、重复导入、未知提交和容量回收。
 5. 用合成身份完成上传→检查→确认发布→另一客服查询复制；真实 Feishu、真实资料、生产账号和 Windows 验收仍关闭。

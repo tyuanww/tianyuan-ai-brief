@@ -16,7 +16,8 @@
 
 2026-10-08 CSV 增量：[P2 CSV 资料输入合同候选](19-P2CSV资料输入合同候选.md)（OpenAPI 1.22.0 / schema.v1.24）已按[本次独立批准](../90-评审/2026-10-08_P2CSV输入合同批准.md)冻结精确五项字节，profile 已切换 `content-intake-csv-v1`，后续通过 v3 完整十四件包交接。CSV 生产消费者尚未启用；运行接入组合 1.21 / 1.23 的冻结与导出状态以其独立记录为准，上文店铺目录段保留的是冻结前历史。本候选不改变其字节、不迁移真实来源、不激活运行。
 
-2026-10-10 SOP 增量：[P2 SOP 工作簿媒体合同候选](20-P2 SOP工作簿媒体合同候选.md)（`sop-xlsx-v1`，DRAFT · NOT FROZEN · NOT EXPORTED · NOT INTAKE）。首期六个工作表全部纳入，按工作表行聚合文字并关联同一行的内嵌 PNG/JPEG/GIF；图片行缺文字整批拒绝，版本优先读取 `版本`/`版本号`，否则使用原字节 SHA-256，同来源同版本幂等。机器候选与验证见 `content-intake-sop-candidate/`。本候选不改既有 FAQ／CSV、运行接入或旧 `ops-loop` SOP 合同，生产 runner 仍关闭。
+2026-10-10 SOP 增量：[P2 SOP 工作簿媒体合同候选](20-P2 SOP工作簿媒体合同候选.md)（`sop-xlsx-v1`，DRAFT · NOT FROZEN · NOT EXPORTED · NOT INTAKE）。首期六个工作表全部纳入，按工作表行聚合文字并关联同一行的内嵌 PNG/JPEG/GIF；图片行缺文字整批拒绝，版本优先读取 `版本`/`版本号`，否则使用原字节 SHA-256，同来源同版本幂等。机器候选与验证见 `content-intake-sop-candidate/`；本轮另形成仍未批准的媒体 HTTP/存储边界增量与验证记录。它们只定义独立图片对象、候选/发布快照引用、受当前资格保护的预览和未知提交恢复，不修改既有 FAQ／CSV、运行接入或旧 `ops-loop` SOP 合同，生产 runner 仍关闭。
+2026-10-10 SOP 边界增量：[P2 SOP 媒体运行边界合同候选](21-P2 SOP媒体运行边界合同候选.md)继续保持 DRAFT；只补齐图片对象生命周期、候选/发布媒体引用、资格保护预览、整单回退与 `COMMIT_UNKNOWN` 恢复，未产生正式 OpenAPI/schema 版本或迁移编号。
 
 目录名保持技术第 4 关兼容入口。本项目记录仓只保存阶段、决定和证据；产品代码继续只在独立产品实施仓中维护。`DEV-M0`、`DEV-M1` W0～W5 与 G1A-E0 T1～T3 退出证据已完成；comparison v2 合同已通过 PR #23 合并。仓外 T4 输入包以四个 0600 成员装配，实际产品解析器静态校验通过；宿主网络沙箱与异常残留回收先以纯合成数据预演通过。首次 T5 在任何 case 执行前因临时目录别名与 sandbox profile 不一致而失败关闭，RUN/CLEANUP 证据确认 0 条评测与 0 残留；共享来源修复经 PR #24 合并至 `main@4dbee4b`，合并后 CI run `33930030132` 三路全绿；仍只具备合成验证证据，后续 Attempt06/07 仍失败关闭，四域业务版本已确认；33 条工程风险记录待负责人承接合同转换，结果仍固定为 `NOT_SIGNED / NOT_EVALUATED`，不自动放行真实 G1a、`DEV-M2`、飞书运行接入、desktop adapter、部署、Pilot 或付费调用。
 

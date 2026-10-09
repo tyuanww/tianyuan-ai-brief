@@ -35,7 +35,7 @@
     "embeddedOnly": true,
     "extensions": ["png", "jpeg", "gif"],
     "sameRowAllImages": true,
-    "metadata": ["id", "sheet", "row", "column", "mime", "bytes", "sha256"],
+    "metadata": ["id", "sheet", "row", "column", "ordinal", "mime", "bytes", "sha256"],
     "externalHyperlinks": "retain_label_only_never_follow",
     "imageWithoutText": "reject_batch",
     "nonSopAttachments": "ignore"
