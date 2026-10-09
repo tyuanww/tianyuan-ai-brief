@@ -1,7 +1,7 @@
 {
   "schema": "customer-agent-content-intake-sop-candidate-checks/v1",
   "recordedOn": "2026-10-10",
-  "sourceCommit": "985bc5e",
+  "sourceCommit": "877d676",
   "status": {
     "protocol": "DRAFT",
     "exportApproved": false,
