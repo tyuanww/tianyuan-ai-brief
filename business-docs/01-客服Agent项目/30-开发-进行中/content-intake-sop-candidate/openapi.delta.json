@@ -124,7 +124,16 @@
       "required": ["mediaObjectId", "sheet", "row", "column", "mime", "bytes", "sha256", "ordinal"],
       "fields": {
         "mediaObjectId": "opaque server identifier",
-        "sheet": "one of the six exact worksheet names",
+        "sheet": {
+          "enum": [
+            "过敏流程SOP",
+            "少错破SOP",
+            "品质售后SOP",
+            "税收相关规则",
+            "品牌对接资源汇总",
+            "长痘痘SOP"
+          ]
+        },
         "row": "positive worksheet row number",
         "column": "positive worksheet column number",
         "mime": "image/png|image/jpeg|image/gif",

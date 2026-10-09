@@ -31,6 +31,9 @@ test('SOP candidate stays synthetic and unapproved', () => {
   assert.equal(protocol.media.sameRowAllImages, true);
   assert.equal(protocol.media.imageWithoutText, 'reject_batch');
   assert.deepEqual(protocol.version.idempotencyKey, 'sourceId + NUL + version');
+  assert.deepEqual(wire.schemas.SopMediaRef.fields.sheet.enum, sheets);
+  assert.deepEqual(protocol.media.extensions.sort(), ['gif', 'jpeg', 'png']);
+  assert.deepEqual(wire.schemas.SopMediaRef.fields.mime, 'image/png|image/jpeg|image/gif');
 });
 
 test('SOP media boundary covers the complete recovery surface', () => {
