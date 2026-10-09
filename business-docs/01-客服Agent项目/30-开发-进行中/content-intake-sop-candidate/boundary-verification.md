@@ -11,6 +11,7 @@
 | [`openapi.delta.json`](openapi.delta.json) | 复用现有上传、候选、发布、回退和 operationId 路径，补充 SOP 图片引用、受资格保护的预览和失败映射 |
 | [`storage.delta.sql`](storage.delta.sql) | 为图片对象、候选附件链接、发布附件快照增加独立的 additive schema 候选；不修改现有 XLSX 对象表 |
 | [`protocol.json`](protocol.json) | 固化 `sop-xlsx-v1` 的输入格式、行文字、六表和解析失败边界 |
+| [`review-gate.md`](review-gate.md) | 列出冻结、导出和产品 intake 前必须由治理仓确认的六项合同决定与最小证据包 |
 
 ## 关键不变量
 
