@@ -23,6 +23,8 @@
 | `check_customer_agent_sop_freeze.mjs` | 核对冻结批准里的 OpenAPI 1.23 / schema 1.26 哈希，并确认当前 profile 仍是 `content-intake-legacy-check-v1`、导出器尚未放入 SOP profile。不写回执，不 export |
 | `prepare_customer_agent_sop_export.mjs` | 在现行 profile 旁边写出 SOP 导出准备清单。`exportApproved` 保持 false，不进入现有导出器，不生成产品迁移 |
 | `export_customer_agent_sop_side.mjs` | 把已冻结的 OpenAPI 1.23 / schema 1.26 记成旁路导出。不运行正式合同集导出器，不改当前 profile，不写产品迁移 |
+| `export_customer_agent_sop_contract_set.mjs` | 从已提交的冻结 OpenAPI 1.23.0 / schema.v1.26 字节写出后继合同集。不替换现行 profile，不替换 1.25 消费锁，并拒绝把 `sop-side-export.v1.json` 当作正式合同集 |
+| `check_customer_agent_sop_contract_set_gate.mjs` | 核对后继合同集可单独导出，同时现行 profile 仍是 `content-intake-legacy-check-v1`，主导出器不接收 SOP profile。不写产品迁移 |
 | `build_customer_agent_owner_contract.mjs` | 确定性聚合承接 SQL 与 OpenAPI；`--write` 生成、`--check` 验证；导出器从同一 Git commit 重建比较 |
 | `export_customer_agent_contract_set.mjs` | 只从调用方指定的完整 40 位来源 commit 读取 OpenAPI / DDL 与规范锚点，校验双哈希后在 ignored `output/` 原子生成只读、不可覆盖的版本化合同集；不读脏工作树、不写产品仓 |
 | `verify_customer_agent_g009_intake.mjs` | 校验 G0-09 四域接收清单的公开安全投影；允许预填态盘点，最终用 `--require-ready` 拒绝缺域、证据错配、质量分母错误和敏感值 |
