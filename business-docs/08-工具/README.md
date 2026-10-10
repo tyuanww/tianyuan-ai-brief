@@ -19,7 +19,7 @@
 | `build_customer_agent_backend_contract.mjs` | 从固定 owner 基线追加生成各版合同；`--write-intake` / `--check-intake` 对应 P2 候选 OpenAPI 1.16.0 / schema.v1.20（未冻结）；不覆盖旧版本 |
 | `build_customer_agent_csv_contract.mjs` | 从冻结的 1.21 / 1.23 原字节及 CSV protocol/storage 生成 DRAFT 1.22 / 1.24；`--write` 生成、`--check` 核验，不冻结、导出或授予运行 |
 | `build_customer_agent_runtime_closure.mjs` | 从冻结 schema1.24 原字节与既有运行事项的旧内容校验 ACL 补丁生成 DRAFT schema1.25 / installation；`--write` / `--check`，保持 OpenAPI1.22 原字节，不修改 current 选择；冻结和交付由独立批准及 exporter 管理，不启用运行 |
-| `build_customer_agent_sop_contract.mjs` | 从冻结 OpenAPI1.22 / schema1.25 原字节和已选定业务决策生成 DRAFT OpenAPI1.23 / schema1.26；`--write` / `--check`，追加三张 SOP 媒体表及回退/保留语义，不读取真实表格、不 export、不 intake、不授予运行权限 |
+| `build_customer_agent_sop_contract.mjs` | 从冻结 OpenAPI1.22 / schema1.25 原字节和已选定业务决策生成 DRAFT OpenAPI1.23 / schema1.26；`--write` / `--check`。核对命令见 [22-P2 SOP合同候选生成与核对](../01-客服Agent项目/30-开发-进行中/22-P2 SOP合同候选生成与核对.md)。不读取真实表格、不 export、不 intake、不授予运行权限 |
 | `build_customer_agent_owner_contract.mjs` | 确定性聚合承接 SQL 与 OpenAPI；`--write` 生成、`--check` 验证；导出器从同一 Git commit 重建比较 |
 | `export_customer_agent_contract_set.mjs` | 只从调用方指定的完整 40 位来源 commit 读取 OpenAPI / DDL 与规范锚点，校验双哈希后在 ignored `output/` 原子生成只读、不可覆盖的版本化合同集；不读脏工作树、不写产品仓 |
 | `verify_customer_agent_g009_intake.mjs` | 校验 G0-09 四域接收清单的公开安全投影；允许预填态盘点，最终用 `--require-ready` 拒绝缺域、证据错配、质量分母错误和敏感值 |
