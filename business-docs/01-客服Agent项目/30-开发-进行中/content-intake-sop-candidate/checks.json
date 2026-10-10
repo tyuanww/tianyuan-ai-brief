@@ -20,8 +20,8 @@
     {
       "command": "npm --prefix sites run test:intake-sop-media-boundary",
       "exitCode": 0,
-      "result": "3 passed, 0 failed",
-      "scope": "protocol and media-reference worksheet enum, seven paths, failure recovery, three additive tables and closed ACL"
+      "result": "4 passed, 0 failed",
+      "scope": "protocol and media-reference worksheet enum, evidence ledger, seven paths, failure recovery, three additive tables and closed ACL"
     },
     {
       "command": "npm --prefix sites run test:docs:fast",
