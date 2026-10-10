@@ -20,6 +20,7 @@ export const SOP_GENERATION = Object.freeze({
   openapiVersion: '1.23.0',
   schemaVersion: '1.26',
   owner: 'intake_runtime_fn_owner',
+  sheets: Object.freeze(['过敏流程SOP', '少错破SOP', '品质售后SOP', '税收相关规则', '品牌对接资源汇总', '长痘痘SOP']),
 });
 
 const EXPECTED = Object.freeze({
@@ -48,7 +49,7 @@ function assertDecision(decision) {
   for (const marker of required) if (!decision.includes(marker)) throw new Error(`SOP decision marker missing: ${marker}`);
 }
 
-const errorSchema = { $ref: '#/components/schemas/SopError' };
+const errorSchema = { $ref: '#/components/schemas/IntakeError' };
 
 function sopResponses(extra = {}) {
   return {
@@ -68,7 +69,7 @@ function buildSopPaths() {
       post: {
         operationId: 'uploadSopWorkbook',
         summary: '接收 SOP XLSX 并保留工作表图片引用',
-        description: '仅接收已在服务端登记的 SOP 来源。六个工作表全部纳入首期候选；工作表名称成为分类。每一行必须有文字答案，图片按所在工作表和行号关联到同一行，同一行多张图片全部保留。空文字答案行整次拒绝并指出工作表、行号。版本优先取文件内版本列，没有版本列时取原始文件 SHA-256。同一来源同一版本幂等，不重复生成内容。真实 sourceId 尚未编制，本路径不绑定桌面文件。',
+        description: `仅接收已在服务端登记的 SOP 来源。首期工作表必须正好是${SOP_GENERATION.sheets.join('、')}，工作表名称成为分类。每一行必须有文字答案，图片按所在工作表和行号关联到同一行，同一行多张图片全部保留。空文字答案行整次拒绝并指出工作表、行号。版本优先取文件内版本列，没有版本列时取原始文件 SHA-256。同一来源同一版本幂等，不重复生成内容。真实 sourceId 尚未编制，本路径不绑定桌面文件。`,
         tags: ['content-intake', 'sop'],
         parameters: [{ name: 'sourceId', in: 'path', required: true, schema: { $ref: '#/components/schemas/IntakeId' } }],
         requestBody: { required: true, content: { 'multipart/form-data': { schema: { $ref: '#/components/schemas/SopWorkbookUpload' } } } },
@@ -119,7 +120,7 @@ function buildSopPaths() {
         description: '方案甲：操作者还能看到一部分来源但已失去另一部分资格时，整单不撤并返回 403 SCOPE_DENIED，已失权内容不展示，已经发布的版本原样保留；操作者对相关来源全部失权，或回退单不属于当前操作者时，按不存在处理并返回 404 NOT_FOUND。绝不拆开只撤仍有权的部分。',
         tags: ['content-intake', 'sop'],
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/SopRollbackCommand' } } } },
-        responses: { '200': { description: '整单回退成功；关联图片与文字一起切换到目标发布。', content: { 'application/json': { schema: { $ref: '#/components/schemas/SopRollbackReceipt' } } } }, ...sopResponses({ '403': { description: 'SCOPE_DENIED：只失去部分来源资格，整单拒绝且不暴露失权部分。', content: { 'application/json': { schema: errorSchema } } }, '404': { description: 'NOT_FOUND：全部失权或回退单不属于当前操作者。', content: { 'application/json': { schema: errorSchema } } } }) },
+        responses: { '200': { description: '整单回退成功；关联图片与文字一起切换到目标发布。', content: { 'application/json': { schema: { $ref: '#/components/schemas/SopRollbackReceipt' } } } }, ...sopResponses({ '403': { description: '顶层 code 为 FORBIDDEN，details.reason 为 SCOPE_DENIED。只失去部分来源资格，整单拒绝且不暴露失权部分。', content: { 'application/json': { schema: errorSchema } } }, '404': { description: '顶层 code 为 NOT_FOUND。全部失权或回退单不属于当前操作者。', content: { 'application/json': { schema: errorSchema } } } }) },
         'x-required-intake-action': 'rollback',
         security: [{ ProductSession: [] }],
       },
@@ -135,22 +136,32 @@ function buildSopPaths() {
         security: [{ ProductSession: [] }],
       },
     },
+    '/v1/intake/sop/candidates/{candidateId}/versions/{version}': {
+      delete: {
+        operationId: 'deleteUnusedSopUpload',
+        summary: '手工删除未使用的整次 SOP 上传',
+        description: '删除这次上传里尚未发布且未被使用的部分。已经发布或正在使用的行留下。可以改用单行删除。历史永久保留，不设自动到期或自动清理。',
+        tags: ['content-intake', 'sop'],
+        parameters: [{ name: 'candidateId', in: 'path', required: true, schema: { $ref: '#/components/schemas/IntakeId' } }, { name: 'version', in: 'path', required: true, schema: { $ref: '#/components/schemas/IntakeVersion' } }],
+        responses: { '204': { description: '未使用部分已删除；正在使用的行保持不变。' }, ...sopResponses({ '409': { description: '这次上传没有可删除的未使用内容，或目标已发布。历史记录保持不变。', content: { 'application/json': { schema: errorSchema } } } }) },
+        security: [{ ProductSession: [] }],
+      },
+    },
   };
 }
 
 function buildSopSchemas() {
   return {
     SopWorkbookUpload: { type: 'object', additionalProperties: false, required: ['file'], properties: { file: { type: 'string', format: 'binary' } } },
-    SopMediaObject: { type: 'object', additionalProperties: false, required: ['mediaObjectId', 'sheetName', 'rowNumber', 'ordinal', 'sha256', 'mime', 'bytes'], properties: { mediaObjectId: { $ref: '#/components/schemas/IntakeId' }, sheetName: { type: 'string', minLength: 1, maxLength: 128 }, rowNumber: { type: 'integer', minimum: 1, maximum: 5000 }, ordinal: { type: 'integer', minimum: 1, maximum: 100 }, sha256: { type: 'string', pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64 }, mime: { type: 'string', enum: ['image/png', 'image/jpeg', 'image/gif'] }, bytes: { type: 'integer', minimum: 1, maximum: 5242880 }, preview: { $ref: '#/components/schemas/SopPreview' } } },
+    SopMediaObject: { type: 'object', additionalProperties: false, required: ['mediaObjectId', 'sheetName', 'rowNumber', 'ordinal', 'sha256', 'mime', 'bytes'], properties: { mediaObjectId: { $ref: '#/components/schemas/IntakeId' }, sheetName: { type: 'string', enum: SOP_GENERATION.sheets }, rowNumber: { type: 'integer', minimum: 1, maximum: 5000 }, ordinal: { type: 'integer', minimum: 1, maximum: 100 }, sha256: { type: 'string', pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64 }, mime: { type: 'string', enum: ['image/png', 'image/jpeg', 'image/gif'] }, bytes: { type: 'integer', minimum: 1, maximum: 5242880 }, preview: { $ref: '#/components/schemas/SopPreview' } } },
     SopPreview: { type: 'object', additionalProperties: false, required: ['previewToken', 'expiresAt'], properties: { previewToken: { type: 'string', minLength: 1, maxLength: 512 }, expiresAt: { type: 'string', format: 'date-time', maxLength: 35 } }, description: '系统内短期预览引用，不是永久 URL。' },
-    SopCandidateRow: { type: 'object', additionalProperties: false, required: ['rowId', 'sheetName', 'rowNumber', 'answer', 'media'], properties: { rowId: { type: 'string', pattern: '^sop:[^:]{1,128}:[1-9][0-9]{0,3}$' }, sheetName: { type: 'string', minLength: 1, maxLength: 128 }, rowNumber: { type: 'integer', minimum: 1, maximum: 5000 }, answer: { type: 'string', minLength: 1, maxLength: 20000 }, media: { type: 'array', maxItems: 100, items: { $ref: '#/components/schemas/SopMediaObject' } } } },
-    SopCandidateMaterial: { type: 'object', additionalProperties: false, required: ['candidateId', 'version', 'sheets', 'contentHash'], properties: { candidateId: { $ref: '#/components/schemas/IntakeId' }, version: { $ref: '#/components/schemas/IntakeVersion' }, sheets: { type: 'array', minItems: 1, maxItems: 6, items: { type: 'object', additionalProperties: false, required: ['name', 'rows'], properties: { name: { type: 'string', minLength: 1, maxLength: 128 }, rows: { type: 'array', items: { $ref: '#/components/schemas/SopCandidateRow' } } } } }, contentHash: { type: 'string', pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64 } } },
+    SopCandidateRow: { type: 'object', additionalProperties: false, required: ['rowId', 'sheetName', 'rowNumber', 'answer', 'media'], properties: { rowId: { type: 'string', pattern: '^sop:[^:]{1,128}:[1-9][0-9]{0,3}$' }, sheetName: { type: 'string', enum: SOP_GENERATION.sheets }, rowNumber: { type: 'integer', minimum: 1, maximum: 5000 }, answer: { type: 'string', minLength: 1, maxLength: 20000 }, media: { type: 'array', maxItems: 100, items: { $ref: '#/components/schemas/SopMediaObject' } } } },
+    SopCandidateMaterial: { type: 'object', additionalProperties: false, required: ['candidateId', 'version', 'sheets', 'contentHash'], properties: { candidateId: { $ref: '#/components/schemas/IntakeId' }, version: { $ref: '#/components/schemas/IntakeVersion' }, sheets: { type: 'array', minItems: 6, maxItems: 6, uniqueItems: true, items: { type: 'object', additionalProperties: false, required: ['name', 'rows'], properties: { name: { type: 'string', enum: SOP_GENERATION.sheets }, rows: { type: 'array', items: { $ref: '#/components/schemas/SopCandidateRow' } } } } }, contentHash: { type: 'string', pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64 } } },
     SopUploadReceipt: { type: 'object', additionalProperties: false, required: ['operationId', 'candidateId', 'version', 'state'], properties: { operationId: { $ref: '#/components/schemas/IntakeId' }, candidateId: { $ref: '#/components/schemas/IntakeId' }, version: { $ref: '#/components/schemas/IntakeVersion' }, state: { type: 'string', enum: ['staged', 'idempotent'] } } },
     SopPublishCommand: { type: 'object', additionalProperties: false, required: ['operationId', 'contentHash', 'confirm'], properties: { operationId: { $ref: '#/components/schemas/IntakeId' }, contentHash: { type: 'string', pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64 }, confirm: { const: true } } },
     SopPublishReceipt: { type: 'object', additionalProperties: false, required: ['releaseId', 'contentHash', 'state'], properties: { releaseId: { $ref: '#/components/schemas/IntakeId' }, contentHash: { type: 'string', pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64 }, state: { const: 'published' } } },
     SopRollbackCommand: { type: 'object', additionalProperties: false, required: ['rollbackPlanId', 'operationId', 'confirm'], properties: { rollbackPlanId: { $ref: '#/components/schemas/IntakeId' }, operationId: { $ref: '#/components/schemas/IntakeId' }, confirm: { const: true } } },
     SopRollbackReceipt: { type: 'object', additionalProperties: false, required: ['releaseId', 'state'], properties: { releaseId: { $ref: '#/components/schemas/IntakeId' }, state: { const: 'rolled_back' } } },
-    SopError: { type: 'object', additionalProperties: false, required: ['code', 'message', 'details'], properties: { code: { type: 'string', enum: ['VALIDATION', 'UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND', 'CONFLICT', 'INTERNAL_ERROR'] }, message: { type: 'string', minLength: 1, maxLength: 512 }, details: { type: 'object', additionalProperties: false, required: ['reason'], properties: { reason: { type: 'string', enum: ['SCOPE_DENIED', 'SOURCE_FORMAT_MISMATCH', 'MATERIAL_CHANGED', 'NOT_FOUND'] } } } } },
   };
 }
 
@@ -193,7 +204,7 @@ CREATE TABLE content_intake.sop_media_objects (
   UNIQUE (media_object_id,source_id,sha256,bytes,mime),
   CHECK ((state='staged' AND adopted_at IS NULL AND discarded_at IS NULL)
     OR (state IN ('adopted','released') AND adopted_at IS NOT NULL AND discarded_at IS NULL)
-    OR (state='discarded' AND discarded_at IS NOT NULL)),
+    OR (state='discarded' AND adopted_at IS NULL AND discarded_at IS NOT NULL)),
   CHECK (adopted_at IS NULL OR adopted_at>=created_at),
   CHECK (discarded_at IS NULL OR discarded_at>=created_at)
 );
@@ -202,7 +213,7 @@ CREATE TABLE content_intake.sop_candidate_media (
   candidate_version content_intake.version NOT NULL,
   source_id content_intake.identifier NOT NULL,
   media_object_id content_intake.identifier NOT NULL,
-  sheet_name TEXT NOT NULL CHECK (length(sheet_name) BETWEEN 1 AND 128 AND sheet_name NOT LIKE '%:%'),
+  sheet_name TEXT NOT NULL CHECK (sheet_name IN ('过敏流程SOP','少错破SOP','品质售后SOP','税收相关规则','品牌对接资源汇总','长痘痘SOP')),
   row_number INTEGER NOT NULL CHECK (row_number BETWEEN 1 AND 5000),
   column_number INTEGER NOT NULL CHECK (column_number BETWEEN 1 AND 32),
   row_id TEXT NOT NULL CHECK (row_id = 'sop:' || sheet_name || ':' || row_number::TEXT),
@@ -222,7 +233,7 @@ CREATE TABLE content_intake.sop_release_media (
   candidate_version content_intake.version NOT NULL,
   source_id content_intake.identifier NOT NULL,
   media_object_id content_intake.identifier NOT NULL,
-  sheet_name TEXT NOT NULL CHECK (length(sheet_name) BETWEEN 1 AND 128 AND sheet_name NOT LIKE '%:%'),
+  sheet_name TEXT NOT NULL CHECK (sheet_name IN ('过敏流程SOP','少错破SOP','品质售后SOP','税收相关规则','品牌对接资源汇总','长痘痘SOP')),
   row_number INTEGER NOT NULL CHECK (row_number BETWEEN 1 AND 5000),
   column_number INTEGER NOT NULL CHECK (column_number BETWEEN 1 AND 32),
   row_id TEXT NOT NULL CHECK (row_id = 'sop:' || sheet_name || ':' || row_number::TEXT),

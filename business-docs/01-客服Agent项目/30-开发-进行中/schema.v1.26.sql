@@ -14032,7 +14032,7 @@ GRANT EXECUTE ON FUNCTION
   TO intake_runtime_fn_owner;
 -- END INTAKE LEGACY CHECK ACL
 
--- BEGIN SOP MEDIA CONTRACT 8e641b45defbea12fa5e8f1ee0611fe36d9980f6b0a3d60f56ab68defe4d2fee
+-- BEGIN SOP MEDIA CONTRACT 1d009c6820abaa749759f63ae5c9e190397acc851bd9ce9e7042233117d9e988
 -- SOP media is an additive candidate only. The real storage provider, bucket, key and secret are undecided.
 BEGIN;
 CREATE TABLE content_intake.sop_media_objects (
@@ -14050,7 +14050,7 @@ CREATE TABLE content_intake.sop_media_objects (
   UNIQUE (media_object_id,source_id,sha256,bytes,mime),
   CHECK ((state='staged' AND adopted_at IS NULL AND discarded_at IS NULL)
     OR (state IN ('adopted','released') AND adopted_at IS NOT NULL AND discarded_at IS NULL)
-    OR (state='discarded' AND discarded_at IS NOT NULL)),
+    OR (state='discarded' AND adopted_at IS NULL AND discarded_at IS NOT NULL)),
   CHECK (adopted_at IS NULL OR adopted_at>=created_at),
   CHECK (discarded_at IS NULL OR discarded_at>=created_at)
 );
@@ -14059,7 +14059,7 @@ CREATE TABLE content_intake.sop_candidate_media (
   candidate_version content_intake.version NOT NULL,
   source_id content_intake.identifier NOT NULL,
   media_object_id content_intake.identifier NOT NULL,
-  sheet_name TEXT NOT NULL CHECK (length(sheet_name) BETWEEN 1 AND 128 AND sheet_name NOT LIKE '%:%'),
+  sheet_name TEXT NOT NULL CHECK (sheet_name IN ('过敏流程SOP','少错破SOP','品质售后SOP','税收相关规则','品牌对接资源汇总','长痘痘SOP')),
   row_number INTEGER NOT NULL CHECK (row_number BETWEEN 1 AND 5000),
   column_number INTEGER NOT NULL CHECK (column_number BETWEEN 1 AND 32),
   row_id TEXT NOT NULL CHECK (row_id = 'sop:' || sheet_name || ':' || row_number::TEXT),
@@ -14079,7 +14079,7 @@ CREATE TABLE content_intake.sop_release_media (
   candidate_version content_intake.version NOT NULL,
   source_id content_intake.identifier NOT NULL,
   media_object_id content_intake.identifier NOT NULL,
-  sheet_name TEXT NOT NULL CHECK (length(sheet_name) BETWEEN 1 AND 128 AND sheet_name NOT LIKE '%:%'),
+  sheet_name TEXT NOT NULL CHECK (sheet_name IN ('过敏流程SOP','少错破SOP','品质售后SOP','税收相关规则','品牌对接资源汇总','长痘痘SOP')),
   row_number INTEGER NOT NULL CHECK (row_number BETWEEN 1 AND 5000),
   column_number INTEGER NOT NULL CHECK (column_number BETWEEN 1 AND 32),
   row_id TEXT NOT NULL CHECK (row_id = 'sop:' || sheet_name || ':' || row_number::TEXT),

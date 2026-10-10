@@ -26,8 +26,12 @@ test('SOP generator is reproducible and appends the frozen schema predecessor', 
 test('SOP OpenAPI records the selected rollback and retention contract', () => {
   const openapi = generated.openapi.toString();
   for (const marker of ['SCOPE_DENIED', '404', '整单不撤', '整单', 'NOT_FOUND', '整次上传', '一条条删', '不设自动到期', '永久 URL', 'productionConsumerReady']) assert.match(openapi, new RegExp(marker));
-  assert.match(openapi, /"403":\{"description":"SCOPE_DENIED/);
-  assert.match(openapi, /"404":\{"description":"NOT_FOUND/);
+  assert.match(openapi, /"403":\{"description":"顶层 code 为 FORBIDDEN，details\.reason 为 SCOPE_DENIED/);
+  assert.match(openapi, /"404":\{"description":"顶层 code 为 NOT_FOUND/);
+  assert.match(openapi, /#\/components\/schemas\/IntakeError/);
+  assert.doesNotMatch(openapi, /SopError/);
+  assert.match(openapi, /deleteUnusedSopUpload/);
+  for (const sheet of SOP_GENERATION.sheets) assert.match(openapi, new RegExp(sheet));
   assert.match(openapi, /"runtime_activated":false/);
   assert.match(openapi, /"syntheticOnly":true/);
   assert.doesNotMatch(openapi, /SRC-LOCAL-04|s3:\/\/|oss\.|BEGIN PRIVATE KEY/);
@@ -43,6 +47,8 @@ test('SOP schema adds exactly three owned tables with public access revoked and 
   }
   assert.doesNotMatch(appended, /\bGRANT\b/);
   assert.doesNotMatch(appended, /CREATE ROLE|CREATE USER|SRC-LOCAL-04/);
+  assert.match(appended, /state='discarded' AND adopted_at IS NULL/);
+  assert.match(appended, /过敏流程SOP/);
   assert.match(appended, /history.*permanent|历史永久保留/);
   assert.match(appended, /不设自动到期/);
 });
