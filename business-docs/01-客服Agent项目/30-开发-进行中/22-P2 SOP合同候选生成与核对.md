@@ -1,9 +1,10 @@
 # P2 SOP 合同候选生成与核对
 
-> **状态：** `DRAFT · NOT FROZEN · NOT EXPORTED · NOT INTAKE`
-> **当前提交：** `9038928`（分支 `codex/content-intake-p2-contracts`）
+> **状态：** `FROZEN · NOT EXPORTED · NOT INTAKE · SYNTHETIC DEVELOPMENT ONLY`
+> **冻结记录：** [2026-10-10 SOP 合同冻结批准](../90-评审/2026-10-10_SOP合同冻结批准.md)
+> **合同字节提交：** `9038928`。说明提交 `acccaa1` 没有改这两份文件。
 
-这份说明告诉你怎么核对已经生成的 SOP 合同候选。它不批准冻结，不执行 export，也不把合同送进产品仓。
+这份说明告诉你怎么核对已经冻结的 SOP 合同。冻结批准不改写机器文件里的 `DRAFT` 和 `freezeApproved:false`。它不执行 export，也不把合同送进产品仓。
 
 ## 你现在有什么
 
@@ -40,11 +41,11 @@ npm --prefix sites run test:docs:fast
 
 ## 还不能做的事
 
-- 不要把状态改成 FROZEN、EXPORTED 或 INTAKE。
+- 不要改写 `openapi.v1.23.yaml` 或 `schema.v1.26.sql` 来把机器字段改成 FROZEN。冻结状态在批准记录里。
 - 不要把 SOP profile 加进导出器封闭名单，也不要运行 export。
 - 不要把 `0036` 写进产品仓。
 - 不要编正式 `sourceId`，不要读取桌面上的真实表格。
 - 不要接真实对象存储、真实飞书或生产 runner。
 - `productionConsumerReady` 保持 false。完整 `/review` 仍是 INCOMPLETE。
 
-人工冻结审批要看 `9038928` 以及其后只改说明、不改合同字节的文档提交。审批通过之前，合同保持草稿。
+旧的 `content-intake-sop-candidate/` 仍是草稿，不是这次冻结的文件。
