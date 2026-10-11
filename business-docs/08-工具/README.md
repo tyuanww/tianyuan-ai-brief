@@ -259,3 +259,10 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 ### 修订后继组合候选（2026-10-11）
 
 [修订后继候选](../01-客服Agent项目/30-开发-进行中/repair-successor-candidate/README.md)由 `build_customer_agent_repair_successor_candidate.mjs --write / --check` 生成完整 OpenAPI、累计参考 schema、升级增量、安装说明及输入 manifest；复用两份已验证候选函数字节，另检查精确 39 段前序与组合安装 ACL。OpenAPI 1.24.0/schema 1.28/0040/profile 都是建议，`formalVersionAssigned=false`、未冻结/export/intake。累计 schema 不是空库安装入口；真实 producer、受限 stage 合同及产品接线条件见该目录，不把合成 PG 安装成功记成生产可用。新生成器不运行时读取产品仓，也不修改旧冻结文件。
+
+### 就绪边界后继候选
+
+`build_customer_agent_readiness_successor.mjs --write|--check` 从固定的 1.28 合同和四十段迁移回执锁生成 [readiness-successor-candidate](../01-客服Agent项目/30-开发-进行中/readiness-successor-candidate/README.md)。拟 1.24.0/1.29/0041；仅撤销五函数默认 PUBLIC 权限、保留内部格式谓词和更新版本标记。它不冻结、不加入 exporter 封闭名单、不生成产品迁移。验证命令及精确批准条件见候选 README。
+
+
+`export_customer_agent_readiness_successor.mjs --freeze|--check|--export` 对上述候选执行独立批准校验；冻结保留候选原字节，正式导出只读取已提交的完整 Git 源。v7 导出包含六个伴随件及 contract-set.json，不重复携带前序 OpenAPI 和累计 schema；完整参考仍在冻结治理源，产品必须核验前序和组合结果后消费。真实运行保持关闭。

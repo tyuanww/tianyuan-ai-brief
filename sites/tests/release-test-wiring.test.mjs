@@ -81,6 +81,9 @@ test('every standalone test has a release route or explicit isolated PG route', 
       assert.equal(scripts['test:repair-successor:pg15'], `node --test tests/${file}`);
       assert.equal(releaseSteps.includes('test:repair-successor:pg15'), false);
       assert.equal(direct.includes(file), false);
+    } else if (file === 'readiness-successor.pg15.mjs') {
+      assert.equal(scripts['test:readiness-successor:pg15'], `node --test tests/${file}`);
+      assert.equal(direct.includes(file), false);
     } else if (file === 'sop-media-upgrade.pg15.mjs') {
       assert.equal(scripts['test:sop-media-upgrade:pg15'], `node --test tests/${file}`);
       assert.equal(releaseSteps.includes('test:sop-media-upgrade:pg15'), false);

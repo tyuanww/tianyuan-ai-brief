@@ -92,7 +92,8 @@
     "test:intake-runtime-closure-contract": "node --test tests/content-intake-runtime-closure.test.mjs tests/content-intake-runtime-closure-export.test.mjs",
     "check:intake-runtime-closure-contract": "node ../business-docs/08-工具/build_customer_agent_runtime_closure.mjs --check",
     "test:intake-runtime-closure-contract:pg": "node tests/content-intake-runtime-closure.pg.mjs",
-    "test:repair-successor:export": "node --test tests/repair-successor-export.test.mjs"
+    "test:repair-successor:export": "node --test tests/repair-successor-export.test.mjs",
+    "test:readiness-successor:pg15": "node --test tests/readiness-successor.pg15.mjs"
   },
   "overrides": {
     "mermaid": {
