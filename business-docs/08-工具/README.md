@@ -16,14 +16,16 @@
 | `test_customer_agent_hub.mjs` | 执行中心五视口、筛选、复制、打印、深色与无障碍验收 |
 | `test_customer_agent_meeting.mjs` | 启动会主屏的泄漏门禁、五视口、交互、离线、打印与无障碍验收 |
 | `verify_customer_agent_pg15.mjs` | 在临时 PostgreSQL 15 cluster 中预检当前 reference DDL；只用 Unix socket、禁用 TCP，结束时删除 PGDATA/WAL，结果写入已忽略的 `output/` |
-| `build_customer_agent_backend_contract.mjs` | 从固定 owner 基线追加生成各版合同；`--write-intake` / `--check-intake` 对应 P2 候选 OpenAPI 1.16.0 / schema.v1.20（未冻结）；不覆盖旧版本 |
+| `build_customer_agent_backend_contract.mjs` | 从固定 owner 基线追加生成各版合同；`--write-intake` / `--check-intake` 对应历史 P2 OpenAPI 1.16.0 / schema.v1.20，冻结状态按对应批准记录核对；不是当前消费版本选择器，不覆盖旧版本 |
 | `build_customer_agent_csv_contract.mjs` | 从冻结的 1.21 / 1.23 原字节及 CSV protocol/storage 生成 DRAFT 1.22 / 1.24；`--write` 生成、`--check` 核验，不冻结、导出或授予运行 |
 | `build_customer_agent_runtime_closure.mjs` | 从冻结 schema1.24 原字节与既有运行事项的旧内容校验 ACL 补丁生成 DRAFT schema1.25 / installation；`--write` / `--check`，保持 OpenAPI1.22 原字节，不修改 current 选择；冻结和交付由独立批准及 exporter 管理，不启用运行 |
 | `build_customer_agent_sop_contract.mjs` | 从冻结 OpenAPI1.22 / schema1.25 原字节和已选定业务决策生成 DRAFT OpenAPI1.23 / schema1.26；`--write` / `--check`。核对命令见 [22-P2 SOP合同候选生成与核对](../01-客服Agent项目/30-开发-进行中/22-P2 SOP合同候选生成与核对.md)。不读取真实表格、不 export、不 intake、不授予运行权限 |
+| `build_customer_agent_publication_compatibility_candidate.mjs` | 从锁定的既有 Owner 与 Coach 合同维护源生成[发布兼容性后继草稿](../01-客服Agent项目/30-开发-进行中/publication-compatibility-candidate/README.md)，恢复 Owner 承接与租户不变量，保留 SQL Coach 范围并明确当前 HTTP 仅 Owner；附 Metrics nullable 修订提案。`--write` / `--check`，不指定正式版本，不冻结、导出、接收或启用运行 |
 | `check_customer_agent_sop_freeze.mjs` | 核对冻结批准里的 OpenAPI 1.23 / schema 1.26 哈希，并确认当前 profile 仍是 `content-intake-legacy-check-v1`、导出器尚未放入 SOP profile。不写回执，不 export |
 | `prepare_customer_agent_sop_export.mjs` | 在现行 profile 旁边写出 SOP 导出准备清单。`exportApproved` 保持 false，不进入现有导出器，不生成产品迁移 |
 | `export_customer_agent_sop_side.mjs` | 把已冻结的 OpenAPI 1.23 / schema 1.26 记成旁路导出。不运行正式合同集导出器，不改当前 profile，不写产品迁移 |
-| `export_customer_agent_sop_contract_set.mjs` | 从已提交的冻结 OpenAPI 1.23.0 / schema.v1.26 字节写出后继合同集。不替换现行 profile，不替换 1.25 消费锁，并拒绝把 `sop-side-export.v1.json` 当作正式合同集 |
+| `export_customer_agent_repair_successor.mjs` | 按2026-10-12精确批准冻结1.24/1.28原字节，独立构建v6八件包；`--freeze` / `--check` / `--export`。正式export要求批准及六件冻结输入在同一HEAD已提交且工作树字节相同，未提交时不生成输出；不启用生产，不覆盖旧导出器 |
+| `export_customer_agent_sop_contract_set.mjs` | 构建和写出前强制核对同一来源提交的冻结批准、OpenAPI 1.23.0 / schema.v1.26 双哈希及 profile/封闭名单，相关工作树偏离时拒绝且不创建输出。冻结校验不代替本次 export 授权；不替换现行 profile 或 1.25 消费锁，不把 `sop-side-export.v1.json` 当作正式合同集 |
 | `check_customer_agent_sop_contract_set_gate.mjs` | 核对后继合同集可单独导出，同时现行 profile 仍是 `content-intake-legacy-check-v1`，主导出器不接收 SOP profile。不写产品迁移 |
 | `build_customer_agent_owner_contract.mjs` | 确定性聚合承接 SQL 与 OpenAPI；`--write` 生成、`--check` 验证；导出器从同一 Git commit 重建比较 |
 | `export_customer_agent_contract_set.mjs` | 只从调用方指定的完整 40 位来源 commit 读取 OpenAPI / DDL 与规范锚点，校验双哈希后在 ignored `output/` 原子生成只读、不可覆盖的版本化合同集；不读脏工作树、不写产品仓 |
@@ -251,3 +253,9 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 ### P2 旧内容校验 ACL 完整交付
 
 [旧内容校验规范](../01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/legacy-check-contract.md)对应复用 OpenAPI1.22 / 新 schema1.25，三个机器对象已按独立精确批准冻结。`build_customer_agent_runtime_closure.mjs --check` 核对原字节；`test:intake-runtime-closure-contract` 覆盖派生、冻结/批准、完整十六件包、嵌套 CSV、DDL 精确前序加增量和防降级。current profile 为 `content-intake-legacy-check-v1`，exporter v4 要求同一完整来源 SHA，旧合法来源历史仍可消费。实际导出/产品接收另留回执，不接真实账号、凭据或生产环境；原候选 PG17 未变证据复用，不机械重跑旧专项。
+
+- SOP 单行删除后继 DRAFT：`build_customer_agent_sop_row_deletion_candidate.mjs` 从冻结前序哈希和 `sop-row-deletion-candidate/storage.source.sql` 生成候选 SQL、协议与 manifest；`--check` 只核对可复现字节。专项验证：`node --test sites/tests/sop-row-deletion-candidate.test.mjs`。未分配正式版本、未加入导出名单、未 export/intake。
+
+### 修订后继组合候选（2026-10-11）
+
+[修订后继候选](../01-客服Agent项目/30-开发-进行中/repair-successor-candidate/README.md)由 `build_customer_agent_repair_successor_candidate.mjs --write / --check` 生成完整 OpenAPI、累计参考 schema、升级增量、安装说明及输入 manifest；复用两份已验证候选函数字节，另检查精确 39 段前序与组合安装 ACL。OpenAPI 1.24.0/schema 1.28/0040/profile 都是建议，`formalVersionAssigned=false`、未冻结/export/intake。累计 schema 不是空库安装入口；真实 producer、受限 stage 合同及产品接线条件见该目录，不把合成 PG 安装成功记成生产可用。新生成器不运行时读取产品仓，也不修改旧冻结文件。

@@ -1,0 +1,55 @@
+{
+  "schema": "publication-compatibility-proposal/v1",
+  "status": "DRAFT",
+  "formalOpenapiVersion": null,
+  "formalSchemaVersion": null,
+  "migrationId": null,
+  "freezeApproved": false,
+  "exportApproved": false,
+  "intakeApproved": false,
+  "runtimeActivated": false,
+  "productionConsumerReady": false,
+  "syntheticOnly": true,
+  "sources": {
+    "owner": {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/owner-acceptance.publish.v1.sql",
+      "sha256": "e2d92ff440e333b066a638accf6ca0942de21415832b92a24dc172a123174edd"
+    },
+    "coach": {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/coach-publish-candidate/storage.delta.sql",
+      "sha256": "2bb50cabc8b7ce0fd77c25c0800c35c17b4bfaa3419f7a140d70719ac2ba5847"
+    },
+    "openapi": {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.23.yaml",
+      "sha256": "82443864e4459af4a9575b304ccecfcbb2cbb4e3c1f08cff13bd512616fe54b0"
+    },
+    "database": {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.26.sql",
+      "sha256": "1c0a4e508ea0aab97d40abff4829ea5a0ce65882ad6a044187fc231872bbe39c"
+    },
+    "overlay": {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.27.sql",
+      "sha256": "ad80e456ff1dd26017e893dd211e84ff6a7e9032bb029811d49ac3df36b9aa85"
+    }
+  },
+  "prerequisites": {
+    "productHead": "292221d080006a86a3b5a4a950b055cef2e94eaa",
+    "currentPublisherBodySha256": "34b6769855bd1aa3ea251589f324e6e743d2df00328d5b707bb54ba736b21d46",
+    "requiredFunctions": [
+      "content_intake.guard_legacy_write(text,text)",
+      "content_intake.inherit_legacy_catalog(text,text)"
+    ],
+    "productFenceMigration": "0022_intake_legacy_fence",
+    "productFenceMigrationSha256": "8df4f9127362aa49c320b87d7afffd910312d54fab7193224e3bece5993a8b03",
+    "installsMissingDependencies": false
+  },
+  "artifacts": {
+    "publisher.candidate.sql": "268b0ecc1b25d7c9d55c737e2e60040d1abef923f88c83dd68f0a4bc4f8df813",
+    "openapi.delta.json": "02f42d9ec0e492cbd2ca4f4faff6980a0c55aa1ec838f866d2f838ddb14c6875"
+  },
+  "remaining": [
+    "Keep PostgreSQL acceptance bound to this exact candidate and product predecessor; current bounded results and remaining conditions are recorded in README",
+    "Explicit successor version, complete prerequisite/ACL closure, freeze/export and product intake approval",
+    "HTTP stays owner-only; no authorization to enable coach HTTP or tighten the approved SQL role branch"
+  ]
+}

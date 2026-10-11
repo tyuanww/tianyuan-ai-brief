@@ -43,6 +43,8 @@
     "test:machine-contracts": "npm run lint:openapi && npm run test:sql-grammar && npm run test:owner-acceptance-contract && npm run check:owner-contract && npm run lint:owner-openapi && npm run test:backend-candidate && npm run check:backend-contract && npm run lint:backend-openapi && npm run test:ops-loop-candidate && npm run check:ops-loop-contract && npm run lint:ops-loop-openapi && npm run test:coach-publish-candidate && npm run check:coach-publish-contract && npm run lint:coach-publish-openapi && npm run test:intake-contract && npm run check:intake-contract && npm run lint:intake-openapi && npm run test:intake-usage-contract && npm run check:intake-usage-contract && npm run lint:intake-usage-openapi && npm run test:intake-quality-contract && npm run check:intake-quality-contract && npm run lint:intake-quality-openapi && npm run test:intake-management-contract && npm run check:intake-management-contract && npm run lint:intake-management-openapi && npm run test:intake-direct-contract && npm run check:intake-direct-contract && npm run lint:intake-direct-openapi && npm run test:intake-shop-directory-contract && npm run check:intake-shop-directory-contract && npm run lint:intake-shop-directory-openapi && npm run test:intake-csv-contract && npm run check:intake-csv-contract && npm run lint:intake-csv-openapi && npm run test:intake-runtime-closure-contract && npm run check:intake-runtime-closure-contract",
     "test:owner-acceptance-contract": "node --test tests/customer-agent-owner-acceptance.registry.test.mjs",
     "test:owner-acceptance:pg15": "node --test tests/customer-agent-owner-acceptance.pg15.mjs",
+    "test:repair-successor:pg15": "node --test tests/repair-successor-candidate.pg15.mjs",
+    "test:sop-media-upgrade:pg15": "node --test tests/sop-media-upgrade.pg15.mjs",
     "test:business": "npm run check:business-sources && node ../business-docs/08-工具/test_customer_agent_prd.mjs --round=ci && node ../business-docs/08-工具/test_customer_agent_hub.mjs --round=ci && node ../business-docs/08-工具/test_customer_agent_meeting.mjs --round=ci",
     "audit:deps": "npm audit --registry=https://registry.npmjs.org",
     "test:release": "npm run test:all",
@@ -89,7 +91,8 @@
     "test:intake-csv-contract:pg": "node tests/content-intake-csv-contract.pg.mjs",
     "test:intake-runtime-closure-contract": "node --test tests/content-intake-runtime-closure.test.mjs tests/content-intake-runtime-closure-export.test.mjs",
     "check:intake-runtime-closure-contract": "node ../business-docs/08-工具/build_customer_agent_runtime_closure.mjs --check",
-    "test:intake-runtime-closure-contract:pg": "node tests/content-intake-runtime-closure.pg.mjs"
+    "test:intake-runtime-closure-contract:pg": "node tests/content-intake-runtime-closure.pg.mjs",
+    "test:repair-successor:export": "node --test tests/repair-successor-export.test.mjs"
   },
   "overrides": {
     "mermaid": {
