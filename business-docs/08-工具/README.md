@@ -16,7 +16,17 @@
 | `test_customer_agent_hub.mjs` | 执行中心五视口、筛选、复制、打印、深色与无障碍验收 |
 | `test_customer_agent_meeting.mjs` | 启动会主屏的泄漏门禁、五视口、交互、离线、打印与无障碍验收 |
 | `verify_customer_agent_pg15.mjs` | 在临时 PostgreSQL 15 cluster 中预检当前 reference DDL；只用 Unix socket、禁用 TCP，结束时删除 PGDATA/WAL，结果写入已忽略的 `output/` |
-| `build_customer_agent_backend_contract.mjs` | 从固定 owner 基线及候选增量生成 OpenAPI 1.13 / schema.v1.16；`--write` 生成、`--check` 校验；不覆盖旧版本 |
+| `build_customer_agent_backend_contract.mjs` | 从固定 owner 基线追加生成各版合同；`--write-intake` / `--check-intake` 对应历史 P2 OpenAPI 1.16.0 / schema.v1.20，冻结状态按对应批准记录核对；不是当前消费版本选择器，不覆盖旧版本 |
+| `build_customer_agent_csv_contract.mjs` | 从冻结的 1.21 / 1.23 原字节及 CSV protocol/storage 生成 DRAFT 1.22 / 1.24；`--write` 生成、`--check` 核验，不冻结、导出或授予运行 |
+| `build_customer_agent_runtime_closure.mjs` | 从冻结 schema1.24 原字节与既有运行事项的旧内容校验 ACL 补丁生成 DRAFT schema1.25 / installation；`--write` / `--check`，保持 OpenAPI1.22 原字节，不修改 current 选择；冻结和交付由独立批准及 exporter 管理，不启用运行 |
+| `build_customer_agent_sop_contract.mjs` | 从冻结 OpenAPI1.22 / schema1.25 原字节和已选定业务决策生成 DRAFT OpenAPI1.23 / schema1.26；`--write` / `--check`。核对命令见 [22-P2 SOP合同候选生成与核对](../01-客服Agent项目/30-开发-进行中/22-P2 SOP合同候选生成与核对.md)。不读取真实表格、不 export、不 intake、不授予运行权限 |
+| `build_customer_agent_publication_compatibility_candidate.mjs` | 从锁定的既有 Owner 与 Coach 合同维护源生成[发布兼容性后继草稿](../01-客服Agent项目/30-开发-进行中/publication-compatibility-candidate/README.md)，恢复 Owner 承接与租户不变量，保留 SQL Coach 范围并明确当前 HTTP 仅 Owner；附 Metrics nullable 修订提案。`--write` / `--check`，不指定正式版本，不冻结、导出、接收或启用运行 |
+| `check_customer_agent_sop_freeze.mjs` | 核对冻结批准里的 OpenAPI 1.23 / schema 1.26 哈希，并确认当前 profile 仍是 `content-intake-legacy-check-v1`、导出器尚未放入 SOP profile。不写回执，不 export |
+| `prepare_customer_agent_sop_export.mjs` | 在现行 profile 旁边写出 SOP 导出准备清单。`exportApproved` 保持 false，不进入现有导出器，不生成产品迁移 |
+| `export_customer_agent_sop_side.mjs` | 把已冻结的 OpenAPI 1.23 / schema 1.26 记成旁路导出。不运行正式合同集导出器，不改当前 profile，不写产品迁移 |
+| `export_customer_agent_repair_successor.mjs` | 按2026-10-12精确批准冻结1.24/1.28原字节，独立构建v6八件包；`--freeze` / `--check` / `--export`。正式export要求批准及六件冻结输入在同一HEAD已提交且工作树字节相同，未提交时不生成输出；不启用生产，不覆盖旧导出器 |
+| `export_customer_agent_sop_contract_set.mjs` | 构建和写出前强制核对同一来源提交的冻结批准、OpenAPI 1.23.0 / schema.v1.26 双哈希及 profile/封闭名单，相关工作树偏离时拒绝且不创建输出。冻结校验不代替本次 export 授权；不替换现行 profile 或 1.25 消费锁，不把 `sop-side-export.v1.json` 当作正式合同集 |
+| `check_customer_agent_sop_contract_set_gate.mjs` | 核对后继合同集可单独导出，同时现行 profile 仍是 `content-intake-legacy-check-v1`，主导出器不接收 SOP profile。不写产品迁移 |
 | `build_customer_agent_owner_contract.mjs` | 确定性聚合承接 SQL 与 OpenAPI；`--write` 生成、`--check` 验证；导出器从同一 Git commit 重建比较 |
 | `export_customer_agent_contract_set.mjs` | 只从调用方指定的完整 40 位来源 commit 读取 OpenAPI / DDL 与规范锚点，校验双哈希后在 ignored `output/` 原子生成只读、不可覆盖的版本化合同集；不读脏工作树、不写产品仓 |
 | `verify_customer_agent_g009_intake.mjs` | 校验 G0-09 四域接收清单的公开安全投影；允许预填态盘点，最终用 `--require-ready` 拒绝缺域、证据错配、质量分母错误和敏感值 |
@@ -208,3 +218,51 @@ G0-15 使用 `05-全栈交付计划.md` §7.1 的现行方案，不另建第二�
 - 公共 Pages 发布已收尾历史 Web，并仅复制通过脱敏门禁的 `09` 启动会生成视图到 `/customer-agent/`；`00`–`08`、源 Markdown、证据和 QA 产物仍不发布。
 
 返回 [`业务文档地图`](../README.md)。
+
+### P2 资料接入合同候选
+
+规范和运行义务见 [P2 合同候选](../01-客服Agent项目/30-开发-进行中/13-P2资料接入合同候选.md)。`npm --prefix sites run test:intake-contract` 校验 schema、生成与临时 Git 导出门；`npm --prefix sites run test:intake-contract:pg` 在隔离 PG15 Unix socket 验证存储约束及查询计划，接受显式 `PG_BIN`。该命令不连接现有数据库。
+
+`content-intake-v2` export 要求本次独立批准和精确成对哈希；2026-10-05 当前工作树的合同已冻结，profile 选择 `content-intake-v2`，但尚未提交/export/intake。DRAFT、缺少本次批准或哈希漂移仍拒绝；合成负例显式构造 DRAFT，不依赖当前仓库生命周期。最终 bundle 的三方 EVD 与 Git 门不由合同冻结代替。参考 DDL 无新运行角色权限；产品事务、旧写隔离和端到端验收按版本化 intake 后实施。
+
+### P2 使用资格上下文候选
+
+[使用资格上下文与词项预算](../01-客服Agent项目/30-开发-进行中/14-P2使用资格上下文合同候选.md)是已批准冻结的合成开发增量（OpenAPI 1.17.0 / schema.v1.21），profile 为 `content-intake-usage-v1`。生成/校验复用 `build_customer_agent_backend_contract.mjs --write-intake-usage / --check-intake-usage`；`test:intake-usage-contract` 验证实际 wire，`test:intake-usage-contract:pg` 复用原隔离 PG15 执行器并追加会话/上下文存储探针。旧 1.16 / 1.20 和其批准记录不变。[本次独立批准](../01-客服Agent项目/90-评审/2026-10-06_P2使用资格上下文合同批准.md)绑定精确双哈希；export 从完整 Git 提交读取规范、批准及生成源，拒绝缺批准、DRAFT、字节漂移和批准后降级。旧合同与不可变 export 不覆盖。
+
+### P2 质量 HTTP 候选
+
+[质量检查 HTTP 候选](../01-客服Agent项目/30-开发-进行中/15-P2质量检查HTTP合同候选.md)对应新 OpenAPI 1.18.0 和未变化的 schema.v1.21。复用 `build_customer_agent_backend_contract.mjs --write-intake-quality / --check-intake-quality`；write 仅生成新 OpenAPI，旧 DDL 只核验。`npm --prefix sites run test:intake-quality-contract` 验证生成 wire、字段/容量边界和旧合同保护；对应 check/lint 已进入 machine/release 检查。已按[独立批准](../01-客服Agent项目/90-评审/2026-10-07_P2质量HTTP合同批准.md)冻结，profile 为 `content-intake-quality-v1`。export 沿用精确提交/双哈希/规范/批准/生成一致性门；质量批准后拒绝降级到旧 profile，历史提交仍可按其原批准导出。机器注解原字节保留，运行 ACL 不改变。
+
+### P2 管理上下文候选
+
+[管理上下文候选](../01-客服Agent项目/30-开发-进行中/16-P2管理上下文合同候选.md)只增加 OpenAPI 1.19.0 的来源管理读口，复用 schema.v1.21 原字节和既有 principals 选择合同。`build_customer_agent_backend_contract.mjs --write-intake-management / --check-intake-management` 只生成新 OpenAPI并核验旧DDL；`npm --prefix sites run test:intake-management-contract` 验证实际 wire、完整前序不变以及冻结/导出拒绝矩阵。对应检查已接入 machine/release。该增量已按[独立批准](../01-客服Agent项目/90-评审/2026-10-07_P2管理上下文合同批准.md)冻结，profile 为 `content-intake-management-v1`；export 从完整提交校验精确双哈希、冻结规范、批准及生成一致性，批准后拒绝降级到1.18或删除批准/profile绕过。导出必须在具有完整 Git 历史的仓库执行；浅克隆不能证明历史批准，明确拒绝且不自动 fetch。完整历史中的旧提交仍按当时批准导出，机器DRAFT注解和旧冻结字节保留，不启用真实身份或生产运行。
+
+### P2 权限配置与确认直发候选
+
+[确认直发规范](../01-客服Agent项目/30-开发-进行中/17-P2权限配置与确认直发合同候选.md)承接权限配置免审批、资料二次确认后直发的本期决定；OpenAPI1.20.0/schema1.22 已按[独立批准](../01-客服Agent项目/90-评审/2026-10-08_P2确认直发合同批准.md)冻结精确版本对。生成/校验使用 `build_customer_agent_backend_contract.mjs --write-intake-direct / --check-intake-direct`；`npm --prefix sites run test:intake-direct-contract` 验证标准消费、确认字段和旧字节保护，`test:intake-direct-contract:pg` 用隔离PG15复用前序fixture并验证增量迁移、政策关联、不可变确认，以及四岗业务上限和 enabler/agent 历史非 query 授权不再放行。schema 哈希随 storage delta 变化，以规范页当前 SHA-256 为准。check/lint已进入machine/release；新增 content-intake-direct-v1 profile，精确提交导出门验证本次批准、双哈希、完整前序和派生一致性，拒绝批准后降级或删除批准/profile；实际产品接收与运行适配另行留证。机器注解保留批准原字节，不启用生产或真实数据。
+
+### P2 店铺目录候选
+
+[店铺目录规范](../01-客服Agent项目/30-开发-进行中/18-P2店铺目录合同候选.md)的 HTTP 保持只读显示名；当前合并 [运行接入候选](../01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/README.md)（OpenAPI 1.21.0 / schema.v1.23，已精确冻结，机器DRAFT元数据保留），组合组织输入、NOLOGIN用途与目录协议。生成/校验使用 `build_customer_agent_backend_contract.mjs --write-intake-shop-directory / --check-intake-shop-directory`；`npm --prefix sites run test:intake-shop-directory-contract` 验证 wire、旧字节和生成器拒绝，`test:intake-shop-directory-contract:pg` 用一次性 PG15 验证授权、分页和名称边界。check/lint 进入 machine/release；PG 脚本不进入 release。生成器同时维护 installation.generated.json，明确核心参考DDL与产品overlay后安装的伴随ACL、精确输入哈希和必需bundle工件。exporter 已实现显式 `content-intake-runtime-v1` → `customer-agent-contract-set/v2`，完整九件 runtime companion 与旧双件及 manifest 一起验证；旧 profile 保持 v1 兼容。实际 profile 已按精确批准切换 runtime；缺规范冻结/批准或工件漂移时仍拒绝导出。临时合成 Git 仓验证缺批准、漏件、错哈希/overlay 和可消费完整产物；不改 `authorization_deadline`，按批准从精确提交导出完整包，不接真实店铺名称。
+
+### P2 CSV 输入合同
+
+[CSV 规范](../01-客服Agent项目/30-开发-进行中/19-P2CSV资料输入合同候选.md)的 OpenAPI 1.22.0／schema.v1.24 及 protocol、storage、installation 五项精确字节已按[独立批准](../01-客服Agent项目/90-评审/2026-10-08_P2CSV输入合同批准.md)冻结。`build_customer_agent_csv_contract.mjs --check` 校验生成一致性；该冻结版本的 profile 为 `content-intake-csv-v1`，现行继任版本见下节；exporter 从含本次批准的完整 Git 提交导出 v3 十四件包并验证全部 runtime 伴随物。机器 DRAFT 元数据保留，缺批准、哈希漂移、漏件或降级仍拒绝；产品接收和 CSV 合成闭环另行留证，不启用真实来源、账号或运行。
+
+
+### P2 旧内容校验 ACL 完整交付
+
+[旧内容校验规范](../01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/legacy-check-contract.md)对应复用 OpenAPI1.22 / 新 schema1.25，三个机器对象已按独立精确批准冻结。`build_customer_agent_runtime_closure.mjs --check` 核对原字节；`test:intake-runtime-closure-contract` 覆盖派生、冻结/批准、完整十六件包、嵌套 CSV、DDL 精确前序加增量和防降级。current profile 为 `content-intake-legacy-check-v1`，exporter v4 要求同一完整来源 SHA，旧合法来源历史仍可消费。实际导出/产品接收另留回执，不接真实账号、凭据或生产环境；原候选 PG17 未变证据复用，不机械重跑旧专项。
+
+- SOP 单行删除后继 DRAFT：`build_customer_agent_sop_row_deletion_candidate.mjs` 从冻结前序哈希和 `sop-row-deletion-candidate/storage.source.sql` 生成候选 SQL、协议与 manifest；`--check` 只核对可复现字节。专项验证：`node --test sites/tests/sop-row-deletion-candidate.test.mjs`。未分配正式版本、未加入导出名单、未 export/intake。
+
+### 修订后继组合候选（2026-10-11）
+
+[修订后继候选](../01-客服Agent项目/30-开发-进行中/repair-successor-candidate/README.md)由 `build_customer_agent_repair_successor_candidate.mjs --write / --check` 生成完整 OpenAPI、累计参考 schema、升级增量、安装说明及输入 manifest；复用两份已验证候选函数字节，另检查精确 39 段前序与组合安装 ACL。OpenAPI 1.24.0/schema 1.28/0040/profile 都是建议，`formalVersionAssigned=false`、未冻结/export/intake。累计 schema 不是空库安装入口；真实 producer、受限 stage 合同及产品接线条件见该目录，不把合成 PG 安装成功记成生产可用。新生成器不运行时读取产品仓，也不修改旧冻结文件。
+
+### 就绪边界后继候选
+
+`build_customer_agent_readiness_successor.mjs --write|--check` 从固定的 1.28 合同和四十段迁移回执锁生成 [readiness-successor-candidate](../01-客服Agent项目/30-开发-进行中/readiness-successor-candidate/README.md)。拟 1.24.0/1.29/0041；仅撤销五函数默认 PUBLIC 权限、保留内部格式谓词和更新版本标记。它不冻结、不加入 exporter 封闭名单、不生成产品迁移。验证命令及精确批准条件见候选 README。
+
+
+`export_customer_agent_readiness_successor.mjs --freeze|--check|--export` 对上述候选执行独立批准校验；冻结保留候选原字节，正式导出只读取已提交的完整 Git 源。v7 导出包含六个伴随件及 contract-set.json，不重复携带前序 OpenAPI 和累计 schema；完整参考仍在冻结治理源，产品必须核验前序和组合结果后消费。真实运行保持关闭。

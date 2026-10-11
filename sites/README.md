@@ -4,18 +4,20 @@
 
 | 发布单元 | 生命周期 | 仓库源 | 网址 |
 |---|---|---|---|
-| AI 赋能立项汇报 | **2026-07-31 业务结论 · 2026-08-09 安全维护与公开脱敏** | [`../archive/2026-08-09-ai-project-brief-security-maintenance/`](../archive/2026-08-09-ai-project-brief-security-maintenance/) | <https://weiweity.github.io/tianyuan-ai-brief/> |
+| AI 赋能立项汇报 | **2026-07-31 业务结论 · 2026-10-06 安全维护候选（未部署）** | [`../archive/2026-10-06-ai-project-brief-security-maintenance/`](../archive/2026-10-06-ai-project-brief-security-maintenance/) | <https://weiweity.github.io/tianyuan-ai-brief/> |
 | 客服 Agent 一期启动会 | **PRE-D0 / 需求阶段会议快照 · 非当前设计 SSOT** | [`../business-docs/01-客服Agent项目/09-客服Agent需求会汇报.html`](../business-docs/01-客服Agent项目/09-客服Agent需求会汇报.html) | <https://weiweity.github.io/tianyuan-ai-brief/customer-agent/> |
+
+新快照仅在本地生成与验证，线上仍以已部署版本为准；本次没有部署。
 
 ## 边界
 
-- `archive/2026-07-31-ai-project-brief/` 与旧 [`archive-manifest.json`](../archive/archive-manifest.json) 保持字节不动；当前发布快照按独立的 [`2026-08-09...manifest.json`](../archive/2026-08-09-ai-project-brief-security-maintenance.manifest.json) 校验文件数、入口哈希和整棵目录哈希。
+- `archive/2026-07-31-ai-project-brief/`、`archive/2026-08-09-ai-project-brief-security-maintenance/`、`archive/2026-10-05-ai-project-brief-security-maintenance/` 及各自 manifest 保持字节不动；当前构建候选按独立的 [`2026-10-06...manifest.json`](../archive/2026-10-06-ai-project-brief-security-maintenance.manifest.json) 校验文件数、入口哈希和整棵目录哈希。
 - 历史站点的构建脚本只有只读 `--check` 模式；不提供原地重建命令。
 - 客服页面只从客服项目真源生成；品牌素材归客服项目自己所有，不依赖历史归档目录。
 - `scripts/build-pages-artifact.mjs` 只做发布编排：归档页发布到 `/`，客服安全视图发布到 `/customer-agent/`。
 - `dist/` 和 `test-results/` 是本地生成物，不提交。
 
-`package.json` 中的 `dompurify@3.4.13` 与 `mermaid@10.9.8` 是当前公开快照本地 vendor 的 **audit/SBOM mirror**。页面运行时只加载 `archive/2026-08-09-ai-project-brief-security-maintenance/vendor/`，不从 `node_modules` 或 CDN 加载；锁文件、vendor 文件名、许可证、Mermaid SRI 与测试必须同步。旧归档中的 3.4.12 / 10.9.6 只作为不再发布的原始证据保留，不允许用 package-only 升级制造假修复。
+`package.json` 锁定 `dompurify@3.4.16`、`mermaid@10.9.8`，并将 Mermaid 的 KaTeX 固定为 `0.18.2`。生成器复制 DOMPurify，从 Mermaid ESM 依赖图重新打包单文件，校验 KaTeX 确实进入构建；不能复制含旧依赖的上游预打包文件。页面运行时只加载 `archive/2026-10-06-ai-project-brief-security-maintenance/vendor/`，不从 `node_modules` 或 CDN 加载；锁文件、vendor、许可证、Mermaid SRI 与测试必须同步。构建依赖 source-map-js 已升至 `1.2.2`。旧快照保持历史字节，不允许用 package-only 升级制造假修复。
 
 ## 校验与预览
 
@@ -50,7 +52,7 @@ Linux CI 如需同时补系统依赖，使用 `npx playwright install --with-dep
 
 CI 由 `quality.yml` 完整检查一次。每次可信 main push / main 手动运行通过后，都从该已验证 checkout 构建并上传 Pages artifact；不再按最新提交的路径跳过发布，防止后来的纯文档提交取消前一页面提交后漏发。同一运行的 `publish` job 依赖 `test` 成功，再调用仅部署的 `pages.yml`。纯文档 main 提交也会打包部署，但不重复全量检查；PR 不部署，也不消费其他运行的 artifact。需要手动发布时运行 quality；没有新的上线授权时不要触发工作流。
 
-`npm run create:security-archive` 只用于首次创建 2026-08-09 快照，若目标已存在会拒绝覆盖；日常只运行 `npm run verify:archive`。生成器从旧归档与锁定的 `node_modules` 在临时目录重建，白名单校验通过后才发布新目录和独立 manifest，禁止手改 Bundle。
+`npm run create:security-archive` 只用于首次创建当前日期快照（日期由生成器拥有），若目标已存在会拒绝覆盖；日常只运行 `npm run verify:archive`。生成器从旧归档与锁定的 `node_modules` 在临时目录重建，白名单校验通过后才发布新目录和独立 manifest，禁止手改 Bundle。
 
 客服设计 changeset 进入当前 Public origin 前，人工运行 `npm run prepare:customer-agent-publish-manifest`。它只在 ignored `output/` 生成完整工作树 inventory 与精确 stage manifest，并把路径、原始字节、Git mode、HEAD/branch/origin 绑定为 bundle；结果固定为“候选未批准”，不会执行 Git 写操作。候选 README 与审批模板会显式列出 `customer-agent` / `design-research` / `security-maintenance-archive` / `shared-repository` / `supply-chain` 五个评审分组及路径数。Product / Security / Tech 三方受控 EVD 必须确认同一 bundle SHA 并覆盖其中全部分组；如任一分组不应交付，须先调整工作树并重生 bundle，不得对同一 bundle 做局部批准。三方确认前不得 stage、commit 或 push，始终禁止 `git add .`。获批后只可按清单精确暂存，并在 commit 前运行 `node ../business-docs/08-工具/prepare_customer_agent_publish_manifest.mjs --verify-staged=<bundle>`；只有 index blob/mode 与候选完全一致时才返回 `STAGED_MATCH`，且仍不自动提交或推送。
 

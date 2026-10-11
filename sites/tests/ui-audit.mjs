@@ -1,3 +1,4 @@
+import { SECURITY_ARCHIVE_NAME, MERMAID_VENDOR_NAME } from "../scripts/build-security-maintenance-archive.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
@@ -7,12 +8,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import axe from "axe-core";
 import { chromium } from "playwright";
-import { sha256, verifyDecisionReceipt } from "../../archive/2026-08-09-ai-project-brief-security-maintenance/js/modules/decision-model.js";
+const { sha256, verifyDecisionReceipt } = await import(`../../archive/${SECURITY_ARCHIVE_NAME}/js/modules/decision-model.js`);
 import { createSafeResultsDir } from "./support/safe-results-dir.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."); // sites
 const monorepoRoot = path.resolve(root, "..");
-const siteBase = "/archive/2026-08-09-ai-project-brief-security-maintenance";
+const siteBase = `/archive/${SECURITY_ARCHIVE_NAME}`;
 const resultsRoot = path.join(root, "test-results");
 const resultsDir = await createSafeResultsDir({
   trustedRootPath: root,
@@ -358,9 +359,9 @@ async function runCanonicalAudit(browser, viewport) {
     if (message.type() === "error") errors.push(`console: ${message.text()}`);
   });
   page.on("request", (request) => {
-    if (/\/archive\/2026-08-09-ai-project-brief-security-maintenance\/data\/content\.json\?/.test(request.url())) contentRequests += 1;
-    if (/\/archive\/2026-08-09-ai-project-brief-security-maintenance\/data\/release\.json(?:\?|$)/.test(request.url())) manifestRequests += 1;
-    if (/\/archive\/2026-08-09-ai-project-brief-security-maintenance\/js\/modules\//.test(request.url())) moduleRequests += 1;
+    if (new URL(request.url()).pathname === `${siteBase}/data/content.json`) contentRequests += 1;
+    if (new URL(request.url()).pathname === `${siteBase}/data/release.json`) manifestRequests += 1;
+    if (new URL(request.url()).pathname.startsWith(`${siteBase}/js/modules/`)) moduleRequests += 1;
   });
   await page.addInitScript(() => {
     localStorage.removeItem("tianyuan-brief-draft-v1");
@@ -1063,7 +1064,7 @@ async function runFileAudit(browser, viewport, useLegacyEntry) {
 
   const entryPath = useLegacyEntry
     ? path.join(root, "../business-docs/99-归档/2026-07-31-立项阶段/print/AI赋能立项_金主一页汇报.html")
-    : path.join(root, "../archive/2026-08-09-ai-project-brief-security-maintenance/index.html");
+    : path.join(root, `../archive/${SECURITY_ARCHIVE_NAME}/index.html`);
   const entryUrl = `${pathToFileURL(entryPath).href}${
     useLegacyEntry ? "" : "?audit=file-direct"
   }`;
@@ -1164,7 +1165,7 @@ async function runFileFailureAudit(browser) {
   });
   const page = await context.newPage();
   await page.route(/app\.offline\.bundle\.js/, (route) => route.abort("failed"));
-  await page.goto(pathToFileURL(path.join(root, "../archive/2026-08-09-ai-project-brief-security-maintenance/index.html")).href, {
+  await page.goto(pathToFileURL(path.join(root, `../archive/${SECURITY_ARCHIVE_NAME}/index.html`)).href, {
     waitUntil: "load",
   });
   await waitForText(page.locator("#doc-title"), /加载失败/, 3000);
@@ -1177,6 +1178,7 @@ async function runFileFailureAudit(browser) {
 }
 
 async function runMermaidResilienceAudit(browser, mode) {
+  let delayedRequests = 0;
   const context = await browser.newContext({
     viewport: { width: 375, height: 667 },
     isMobile: true,
@@ -1200,7 +1202,8 @@ async function runMermaidResilienceAudit(browser, mode) {
       );
     });
   } else {
-    await page.route(/mermaid-10\.9\.6\.min\.js/, async (route) => {
+    await page.route(`**/vendor/${MERMAID_VENDOR_NAME}*`, async (route) => {
+      delayedRequests++;
       await new Promise((resolve) => setTimeout(resolve, 3000));
       await route.continue();
     });
@@ -1219,6 +1222,7 @@ async function runMermaidResilienceAudit(browser, mode) {
   await page.locator("#tab-t2").click();
   if (mode === "slow") {
     await assertVisibleMermaidText(page, "t2");
+    assert.equal(delayedRequests, 1, "必须实际延迟当前 Mermaid vendor");
   } else {
     await page.locator('#t2 .mermaid-host[data-render-state="fallback"]').waitFor({
       timeout: 3000,
@@ -1253,7 +1257,7 @@ async function runLastKnownGoodAudit(browser) {
   const fallback = await context.newPage();
   const errors = [];
   fallback.on("pageerror", (error) => errors.push(error.message));
-  await fallback.route(/\/archive\/2026-08-09-ai-project-brief-security-maintenance\/data\/release\.json/, (route) =>
+  await fallback.route((url) => url.pathname === `${siteBase}/data/release.json`, (route) =>
     route.fulfill({ status: 503, body: "unavailable" })
   );
   await fallback.goto(`${origin}${siteBase}/?audit=lkg-fallback`, { waitUntil: "domcontentloaded" });
@@ -1271,7 +1275,7 @@ async function runColdStartRecoveryAudit(browser) {
   let failManifest = true;
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => localStorage.clear());
-  await page.route(/\/archive\/2026-08-09-ai-project-brief-security-maintenance\/data\/release\.json/, (route) =>
+  await page.route((url) => url.pathname === `${siteBase}/data/release.json`, (route) =>
     failManifest
       ? route.fulfill({ status: 503, contentType: "text/plain", body: "unavailable" })
       : route.continue()
@@ -1303,8 +1307,8 @@ async function runColdStartRecoveryAudit(browser) {
 
 async function runSameReleaseHotUpdateAudit(browser) {
   const [contentText, releaseText] = await Promise.all([
-    readFile(path.join(root, "../archive/2026-08-09-ai-project-brief-security-maintenance/data/content.json"), "utf8"),
-    readFile(path.join(root, "../archive/2026-08-09-ai-project-brief-security-maintenance/data/release.json"), "utf8"),
+    readFile(path.join(root, `../archive/${SECURITY_ARCHIVE_NAME}/data/content.json`), "utf8"),
+    readFile(path.join(root, `../archive/${SECURITY_ARCHIVE_NAME}/data/release.json`), "utf8"),
   ]);
   const updatedText = contentText.replace("收尾时 Goal", "校验时 Goal");
   assert.equal(updatedText.length, contentText.length, "故障注入必须保持正文长度不变");
@@ -1317,7 +1321,7 @@ async function runSameReleaseHotUpdateAudit(browser) {
   let serveUpdate = false;
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => localStorage.clear());
-  await page.route(/\/archive\/2026-08-09-ai-project-brief-security-maintenance\/data\/release\.json/, (route) =>
+  await page.route((url) => url.pathname === `${siteBase}/data/release.json`, (route) =>
     serveUpdate
       ? route.fulfill({
           contentType: "application/json",
@@ -1325,7 +1329,7 @@ async function runSameReleaseHotUpdateAudit(browser) {
         })
       : route.continue()
   );
-  await page.route(/\/archive\/2026-08-09-ai-project-brief-security-maintenance\/data\/content\.json/, (route) => {
+  await page.route((url) => url.pathname === `${siteBase}/data/content.json`, (route) => {
     const requestedSha = new URL(route.request().url()).searchParams.get("sha");
     return serveUpdate && requestedSha === updatedManifest.contentSha256
       ? route.fulfill({ contentType: "application/json", body: updatedText })
@@ -1347,7 +1351,7 @@ async function runSameReleaseHotUpdateAudit(browser) {
 
 async function runCrossReleaseRefreshAudit(browser) {
   const release = JSON.parse(
-    await readFile(path.join(root, "../archive/2026-08-09-ai-project-brief-security-maintenance/data/release.json"), "utf8")
+    await readFile(path.join(root, `../archive/${SECURITY_ARCHIVE_NAME}/data/release.json`), "utf8")
   );
   const nextReleaseId = `${release.releaseId}-next`;
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -1368,7 +1372,7 @@ async function runCrossReleaseRefreshAudit(browser) {
     localStorage.clear();
     sessionStorage.clear();
   });
-  await page.route(/\/archive\/2026-08-09-ai-project-brief-security-maintenance\/data\/release\.json/, (route) => {
+  await page.route((url) => url.pathname === `${siteBase}/data/release.json`, (route) => {
     const targeted =
       new URL(page.url()).searchParams.get("_release") === nextReleaseId;
     return serveNextRelease && !targeted
@@ -1396,6 +1400,7 @@ async function runCrossReleaseRefreshAudit(browser) {
 }
 
 async function runImmediatePrintFallbackAudit(browser) {
+  let delayedRequests = 0;
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
@@ -1403,7 +1408,8 @@ async function runImmediatePrintFallbackAudit(browser) {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.route(/mermaid-10\.9\.6\.min\.js/, async (route) => {
+  await page.route(`**/vendor/${MERMAID_VENDOR_NAME}*`, async (route) => {
+    delayedRequests++;
     await new Promise((resolve) => setTimeout(resolve, 3000));
     await route.continue();
   });
@@ -1424,6 +1430,7 @@ async function runImmediatePrintFallbackAudit(browser) {
   });
   const elapsed = Date.now() - started;
   assert.ok(elapsed < 2500, `立即打印不应等待慢 Mermaid：${elapsed}ms`);
+  assert.equal(delayedRequests, 1, "打印必须实际面对延迟的当前 Mermaid vendor");
   const states = await page.locator(".mermaid-host").evaluateAll((hosts) =>
     hosts.map((host) => ({
       state: host.dataset.renderState,

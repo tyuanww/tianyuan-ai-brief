@@ -1,0 +1,31 @@
+{
+  "schema": "sop-row-deletion-candidate/v1",
+  "status": "DRAFT",
+  "formalOpenapiVersion": null,
+  "formalSchemaVersion": null,
+  "migrationId": null,
+  "freezeApproved": false,
+  "exportApproved": false,
+  "intakeApproved": false,
+  "runtimeActivated": false,
+  "productionConsumerReady": false,
+  "syntheticOnly": true,
+  "inputs": {
+    "schema": {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.27.sql",
+      "sha256": "ad80e456ff1dd26017e893dd211e84ff6a7e9032bb029811d49ac3df36b9aa85"
+    },
+    "openapi": {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.23.yaml",
+      "sha256": "82443864e4459af4a9575b304ccecfcbb2cbb4e3c1f08cff13bd512616fe54b0"
+    },
+    "source": {
+      "path": "business-docs/01-客服Agent项目/30-开发-进行中/sop-row-deletion-candidate/storage.source.sql",
+      "sha256": "9036ac67bd0bcf7d66c5b09e6c10142fb092af94e761b4238e845c039f40250d"
+    }
+  },
+  "artifacts": {
+    "storage.candidate.sql": "dfa8dc104c6c0a4654d33c3e0bd21dc50d9580cbdb6baf41f2dcf2837a2d0f45",
+    "openapi.delta.json": "a69cc333163580acd4025ece525e06794b524d05b70dfa1c7ddf5fe79900dd0c"
+  }
+}

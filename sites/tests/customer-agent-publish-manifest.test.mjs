@@ -406,3 +406,23 @@ test("verify-staged 在真实临时 Git index 中接受精确候选并拒绝 blo
     });
   });
 });
+
+test("每个日期的安全快照必须携带自身 manifest 和生成校验链", () => {
+  const tools = [
+    { status: "M", path: "sites/scripts/build-security-maintenance-archive.mjs" },
+    { status: "M", path: "sites/tests/security-maintenance-archive.test.mjs" },
+  ];
+  for (const date of ["2026-08-09", "2026-10-05"]) {
+    const prefix = `archive/${date}-ai-project-brief-security-maintenance`;
+    const snapshot = { status: "A", path: `${prefix}/index.html` };
+    assert.throws(() => validateAtomicRelationships([snapshot, ...tools]), /安全维护归档原子集合不完整/);
+    assert.doesNotThrow(() => validateAtomicRelationships([
+      snapshot, { status: "A", path: `${prefix}.manifest.json` }, ...tools,
+    ]));
+  }
+  assert.throws(() => validateAtomicRelationships([
+    { status: "A", path: "archive/2026-10-05-ai-project-brief-security-maintenance/index.html" },
+    { status: "M", path: "archive/2026-08-09-ai-project-brief-security-maintenance.manifest.json" },
+    ...tools,
+  ]), /安全维护归档原子集合不完整/);
+});

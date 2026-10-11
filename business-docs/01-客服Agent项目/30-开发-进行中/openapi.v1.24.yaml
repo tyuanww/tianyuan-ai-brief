@@ -1,0 +1,32 @@
+openapi: 3.1.1
+info:
+  title: CS-AI-C11 Customer Service Agent API
+  version: 1.24.0
+  summary: Additive overlay on immutable OpenAPI 1.23.0
+  description: |
+    Approved next contract. It does not replace OpenAPI 1.23.0 or the consumed
+    1.22.0 / schema 1.25 lock. Production remains closed.
+    Scope domain gains sop. Unused SOP row deletion stays the 1.23 operation
+    deleteUnusedSopRow. Published or in-use rows cannot be deleted.
+paths: {}
+components:
+  schemas:
+    IntakeScopeDomain:
+      type: string
+      enum: [presale, campaign, aftersale, product, sop]
+      description: sop is one Menokin workbook. Its six sheets stay categories.
+x-content-intake-sop-v127:
+  status: APPROVED
+  freezeApproved: false
+  exportApproved: false
+  runtime_activated: false
+  productionConsumerReady: false
+  syntheticOnly: true
+  openapi: 1.24.0
+  schema: 1.27
+  predecessorOpenapi: 1.23.0
+  predecessorSchema: 1.26
+  sourceId: src-menokin-sop
+  storageProvider: not-defined
+  permanentObjectUrl: false
+  imageBytesInDatabase: false

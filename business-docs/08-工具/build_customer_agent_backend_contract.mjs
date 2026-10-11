@@ -97,6 +97,347 @@ export const COACH_PUBLISH_CONTRACT_PATHS = Object.freeze({
 export const COACH_PUBLISH_SOURCES = Object.freeze({
   storage: `${development}/coach-publish-candidate/storage.delta.sql`,
 });
+export const INTAKE_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.16.yaml`,
+  database: `${development}/schema.v1.20.sql`,
+  increment: `${development}/13-P2资料接入合同候选.md`,
+});
+export const INTAKE_SOURCES = Object.freeze({
+  openapi: `${development}/content-intake-candidate/openapi.delta.json`,
+  storage: `${development}/content-intake-candidate/storage.delta.sql`,
+});
+export const INTAKE_APPROVAL_PATH = 'business-docs/01-客服Agent项目/90-评审/2026-10-04_P2内容接入合同批准.md';
+
+export function buildIntakeContractFiles(readSource) {
+  const base = buildCoachPublishContractFiles(readSource);
+  const delta = JSON.parse(readSource(INTAKE_SOURCES.openapi));
+  let openapi = base.openapi.toString('utf8');
+  const insert = (anchor, value) => {
+    if (openapi.split(anchor).length !== 2) throw new Error(`Non-unique intake anchor: ${anchor}`);
+    openapi = openapi.replace(anchor, anchor + value);
+  };
+  if (!openapi.includes('  version: 1.15.0\n')) throw new Error('Intake predecessor must be 1.15.0');
+  openapi = openapi.replace('  version: 1.15.0\n', '  version: 1.16.0\n');
+  for (const [route, item] of Object.entries(delta.paths)) {
+    if (!route.startsWith('/v1/intake/') || openapi.includes(`  ${route}:`) || openapi.includes(`  ${JSON.stringify(route)}:`)) throw new Error(`Intake route collision or namespace: ${route}`);
+    const operations = Object.fromEntries(Object.entries(item).map(([method, operation]) => {
+      if (!['get','post','put','patch','delete'].includes(method)) throw new Error(`Unsupported intake method: ${method}`);
+      return [method, {...operation, security: delta.security}];
+    }));
+    insert('paths:\n', `  ${JSON.stringify(route)}: ${JSON.stringify(operations)}\n`);
+  }
+  for (const [name, value] of Object.entries(delta.components.schemas)) {
+    if (!/^Intake[A-Za-z0-9]+$/.test(name) || openapi.includes(`    ${name}:`)) throw new Error(`Intake schema collision: ${name}`);
+    insert('  schemas:\n', `    ${name}: ${JSON.stringify(value)}\n`);
+  }
+  for (const tag of delta.tags) insert('\ntags:\n', `  - ${JSON.stringify(tag)}\n`);
+  openapi += '\nx-content-intake-development: '+JSON.stringify({status:'SYNTHETIC_DEVELOPMENT_ONLY',runtime_activated:false,sqlContract:'schema.v1.20',transactionImplementationRequired:true,minimumSnapshotFormat:'intake-v2.1'})+'\n';
+  const storage = readSource(INTAKE_SOURCES.storage);
+  const database = Buffer.concat([
+    Buffer.from('-- schema.v1.20 — content-intake additive storage contract candidate\n'),
+    base.database,
+    Buffer.from(`\n-- BEGIN CONTENT INTAKE ${digest(storage)}\n`), storage,
+    Buffer.from('-- END CONTENT INTAKE\n'),
+  ]);
+  return {openapi:Buffer.from(openapi), database};
+}
+export const INTAKE_USAGE_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.17.yaml`,
+  database: `${development}/schema.v1.21.sql`,
+  increment: `${development}/14-P2使用资格上下文合同候选.md`,
+});
+export const INTAKE_USAGE_SOURCES = Object.freeze({
+  openapi: `${development}/content-intake-usage-candidate/openapi.delta.json`,
+  storage: `${development}/content-intake-usage-candidate/storage.delta.sql`,
+});
+export const INTAKE_USAGE_APPROVAL_PATH = 'business-docs/01-客服Agent项目/90-评审/2026-10-06_P2使用资格上下文合同批准.md';
+
+/** Rebuild the approved bytes unchanged (including original draft annotations).
+ * Lifecycle approval lives in the paired normative/approval records, not a rewrite
+ * of already reviewed machine bytes. Rebuild the predecessor, then replace exact
+ * component/operation lines. Standard JSON Schema expresses the combined budget;
+ * downstream validators need no private keyword or hand-maintained field list. */
+export function buildIntakeUsageContractFiles(readSource) {
+  const base=buildIntakeContractFiles(readSource);
+  const prior=JSON.parse(readSource(INTAKE_SOURCES.openapi));
+  const delta=JSON.parse(readSource(INTAKE_USAGE_SOURCES.openapi));
+  const limit=prior.components.schemas.IntakeSnapshot.properties.vocabulary.maxItems;
+  if (delta.vocabularyLimit!==limit || delta.selectionIds.maxItems!==limit) throw new Error('Usage budget must match frozen snapshot budget');
+  let openapi=base.openapi.toString('utf8');
+  const replace=(before,after)=>{
+    if(openapi.split(before).length!==2) throw new Error('Non-unique usage predecessor anchor');
+    openapi=openapi.replace(before,after);
+  };
+  replace('  version: 1.16.0\n','  version: 1.17.0\n');
+  replace('  schemas:\n',`  schemas:\n    IntakeSelectionIds: ${JSON.stringify(delta.selectionIds)}\n`);
+  const request=structuredClone(prior.components.schemas.IntakeEntitlementRequest);
+  request.required.push('productIds','scenarioIds');
+  for(const name of ['productIds','scenarioIds']) request.properties[name]={$ref:'#/components/schemas/IntakeSelectionIds'};
+  const schemas={IntakeEntitlementRequest:request};
+  for(const name of ['IntakeEntry','IntakePublishedEntry']) {
+    const schema=structuredClone(prior.components.schemas[name]);
+    const budget=Array.from({length:limit},(_,i)=>({
+      if:{properties:{productRefs:{type:'array',minItems:i+1}}},
+      then:{properties:{scenarioRefs:{type:'array',maxItems:limit-i-1}}},
+    }));
+    // Historical over-budget rows may still be explicitly disabled, never republished.
+    schema.allOf=[{if:{properties:{operation:{const:'upsert'}}},then:{allOf:budget}}];
+    schema.description+=' 启用条目的商品与场景引用总数最多 100；整页去重词项最多 100，分页不得截断条目。';
+    schemas[name]=schema;
+  }
+  for(const [name,schema] of Object.entries(schemas)) replace(
+    `    ${name}: ${JSON.stringify(prior.components.schemas[name])}\n`, `    ${name}: ${JSON.stringify(schema)}\n`);
+  for(const [route,description] of [['/v1/intake/entitlements',delta.entitlementDescription],['/v1/intake/snapshot',delta.snapshotDescription]]) {
+    const old=Object.fromEntries(Object.entries(prior.paths[route]).map(([method,op])=>[method,{...op,security:prior.security}]));
+    const next=structuredClone(old);Object.values(next)[0].description=description;
+    replace(`  ${JSON.stringify(route)}: ${JSON.stringify(old)}\n`,`  ${JSON.stringify(route)}: ${JSON.stringify(next)}\n`);
+  }
+  openapi+='\nx-content-intake-usage-development: '+JSON.stringify({status:'DRAFT',runtime_activated:false,sqlContract:'schema.v1.21',transactionImplementationRequired:true})+'\n';
+  const storage=readSource(INTAKE_USAGE_SOURCES.storage);
+  const database=Buffer.concat([Buffer.from('-- schema.v1.21 — DRAFT usage-context additive storage contract\n'),base.database,
+    Buffer.from(`\n-- BEGIN INTAKE USAGE ${digest(storage)}\n`),storage,Buffer.from('-- END INTAKE USAGE\n')]);
+  return {openapi:Buffer.from(openapi),database};
+}
+
+export const INTAKE_QUALITY_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.18.yaml`,
+  // HTTP-only increment: the exact frozen DDL is paired, not copied or renamed.
+  database: INTAKE_USAGE_CONTRACT_PATHS.database,
+  increment: `${development}/15-P2质量检查HTTP合同候选.md`,
+});
+export const INTAKE_QUALITY_SOURCE = `${development}/content-intake-quality-candidate/openapi.delta.json`;
+export const INTAKE_QUALITY_APPROVAL_PATH = 'business-docs/01-客服Agent项目/90-评审/2026-10-07_P2质量HTTP合同批准.md';
+
+/** Add the bounded quality wire to the unchanged approved predecessor. Internal
+ * product quality storage remains product-owned; no new ACL or SQL is implied. */
+export function buildIntakeQualityContractFiles(readSource) {
+  const base = buildIntakeUsageContractFiles(readSource);
+  const delta = JSON.parse(readSource(INTAKE_QUALITY_SOURCE));
+  let openapi = base.openapi.toString('utf8');
+  const insert = (anchor, value) => {
+    if (openapi.split(anchor).length !== 2) throw new Error(`Non-unique quality anchor: ${anchor}`);
+    openapi = openapi.replace(anchor, anchor + value);
+  };
+  if (!openapi.includes('  version: 1.17.0\n')) throw new Error('Quality predecessor must be 1.17.0');
+  openapi = openapi.replace('  version: 1.17.0\n', '  version: 1.18.0\n');
+  for (const [route, item] of Object.entries(delta.paths)) {
+    if (!route.startsWith('/v1/intake/') || openapi.includes(`  ${route}:`) || openapi.includes(`  ${JSON.stringify(route)}:`)) {
+      throw new Error(`Quality route collision or namespace: ${route}`);
+    }
+    const operations = Object.fromEntries(Object.entries(item).map(([method, operation]) => {
+      if (!['get', 'post'].includes(method)) throw new Error(`Unsupported quality method: ${method}`);
+      return [method, { ...operation, security: [{ ProductSession: [] }] }];
+    }));
+    insert('paths:\n', `  ${JSON.stringify(route)}: ${JSON.stringify(operations)}\n`);
+  }
+  for (const [name, schema] of Object.entries(delta.components.schemas)) {
+    if (!/^IntakeQuality[A-Za-z0-9]+$/.test(name) || openapi.includes(`    ${name}:`)) throw new Error(`Quality schema collision: ${name}`);
+    insert('  schemas:\n', `    ${name}: ${JSON.stringify(schema)}\n`);
+  }
+  openapi += '\nx-content-intake-quality-development: ' + JSON.stringify({ status: 'DRAFT', runtime_activated: false,
+    sqlContract: 'schema.v1.21', transactionImplementationRequired: true }) + '\n';
+  return { openapi: Buffer.from(openapi), database: base.database };
+}
+
+export const INTAKE_MANAGEMENT_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.19.yaml`,
+  database: INTAKE_QUALITY_CONTRACT_PATHS.database,
+  increment: `${development}/16-P2管理上下文合同候选.md`,
+});
+export const INTAKE_MANAGEMENT_SOURCE = `${development}/content-intake-management-candidate/openapi.delta.json`;
+export const INTAKE_MANAGEMENT_APPROVAL_PATH = 'business-docs/01-客服Agent项目/90-评审/2026-10-07_P2管理上下文合同批准.md';
+
+/** Read-only upload context. Existing principals wire and identity storage stay
+ * owned by their frozen contracts. Lifecycle approval never rewrites these bytes. */
+export function buildIntakeManagementContractFiles(readSource) {
+  const base = buildIntakeQualityContractFiles(readSource);
+  const delta = JSON.parse(readSource(INTAKE_MANAGEMENT_SOURCE));
+  let openapi = base.openapi.toString('utf8');
+  const insert = (anchor, value) => {
+    if (openapi.split(anchor).length !== 2) throw new Error(`Non-unique management anchor: ${anchor}`);
+    openapi = openapi.replace(anchor, anchor + value);
+  };
+  if (openapi.split('  version: 1.18.0\n').length !== 2) throw new Error('Management predecessor must be 1.18.0');
+  openapi = openapi.replace('  version: 1.18.0\n', '  version: 1.19.0\n');
+  for (const [route, item] of Object.entries(delta.paths)) {
+    if (!route.startsWith('/v1/intake/') || openapi.includes(`  ${route}:`) || openapi.includes(`  ${JSON.stringify(route)}:`)) {
+      throw new Error(`Management route collision or namespace: ${route}`);
+    }
+    const operations = Object.fromEntries(Object.entries(item).map(([method, operation]) => {
+      if (method !== 'get') throw new Error(`Unsupported management method: ${method}`);
+      return [method, { ...operation, security: [{ ProductSession: [] }] }];
+    }));
+    insert('paths:\n', `  ${JSON.stringify(route)}: ${JSON.stringify(operations)}\n`);
+  }
+  for (const [name, schema] of Object.entries(delta.components.schemas)) {
+    if (!/^IntakeManagement[A-Za-z0-9]+$/.test(name) || openapi.includes(`    ${name}:`)) throw new Error(`Management schema collision: ${name}`);
+    insert('  schemas:\n', `    ${name}: ${JSON.stringify(schema)}\n`);
+  }
+  openapi += '\nx-content-intake-management-development: ' + JSON.stringify({ status: 'DRAFT', runtime_activated: false,
+    sqlContract: 'schema.v1.21', exportApproved: false }) + '\n';
+  return { openapi: Buffer.from(openapi), database: base.database };
+}
+export const INTAKE_DIRECT_APPROVAL_PATH = 'business-docs/01-客服Agent项目/90-评审/2026-10-08_P2确认直发合同批准.md';
+export const INTAKE_DIRECT_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.20.yaml`, database: `${development}/schema.v1.22.sql`,
+  increment: `${development}/17-P2权限配置与确认直发合同候选.md`,
+});
+export const INTAKE_DIRECT_SOURCES = Object.freeze({
+  openapi: `${development}/content-intake-direct-candidate/openapi.delta.json`,
+  storage: `${development}/content-intake-direct-candidate/storage.delta.sql`,
+});
+
+/** Versioned draft only. Replace existing intake wire, preserving the exact
+ * approved predecessor files. No export profile or activation is implied. */
+export function buildIntakeDirectContractFiles(readSource) {
+  const base = buildIntakeManagementContractFiles(readSource);
+  const delta = JSON.parse(readSource(INTAKE_DIRECT_SOURCES.openapi));
+  let openapi = base.openapi.toString('utf8');
+  const replaceLine = (prefix, value) => {
+    const matches = openapi.split('\n').filter(line => line.startsWith(prefix));
+    if (matches.length !== 1) throw new Error(`Non-unique direct predecessor: ${prefix}`);
+    openapi = openapi.replace(matches[0] + '\n', prefix + JSON.stringify(value) + '\n');
+  };
+  if (openapi.split('  version: 1.19.0\n').length !== 2) throw new Error('Direct predecessor must be 1.19.0');
+  openapi = openapi.replace('  version: 1.19.0\n', '  version: 1.20.0\n');
+  const allowedSchemas = ['IntakePublish','IntakeRollback','IntakeCandidate'];
+  if (Object.keys(delta.components.schemas).sort().join() !== allowedSchemas.sort().join()) throw new Error('Unexpected direct schemas');
+  for (const [name,schema] of Object.entries(delta.components.schemas)) replaceLine(`    ${name}: `,schema);
+  const expectedRoutes = ['/v1/intake/candidates/{candidateId}/versions/{version}/publish',
+    '/v1/intake/candidates/{candidateId}/versions/{version}/review',
+    '/v1/intake/candidates/{candidateId}/versions/{version}/review/refresh',
+    '/v1/intake/rollback', '/v1/intake/rollback/{rollbackPlanId}/review',
+    '/v1/intake/rollback/{rollbackPlanId}/review/refresh'];
+  if (Object.keys(delta.paths).sort().join() !== expectedRoutes.sort().join()) throw new Error('Unexpected direct routes');
+  for (const [route,item] of Object.entries(delta.paths)) {
+    const methods = route.endsWith('/review') ? 'get,post' : 'post';
+    if (Object.keys(item).sort().join() !== methods) throw new Error('Unexpected direct method');
+    replaceLine(`  ${JSON.stringify(route)}: `,Object.fromEntries(Object.entries(item).map(([method,op]) => [method,{...op,security:[{ProductSession:[]}]}])));
+  }
+  openapi += '\nx-content-intake-direct-development: ' + JSON.stringify({status:'DRAFT',runtime_activated:false,
+    sqlContract:'schema.v1.22',exportApproved:false,transactionImplementationRequired:true}) + '\n';
+  const storage=readSource(INTAKE_DIRECT_SOURCES.storage);
+  return {openapi:Buffer.from(openapi),database:Buffer.concat([Buffer.from('-- schema.v1.22 — DRAFT confirmed direct publication\n'),
+    base.database,Buffer.from(`\n-- BEGIN INTAKE DIRECT ${digest(storage)}\n`),storage,Buffer.from('-- END INTAKE DIRECT\n')])};
+}
+
+/** Next free draft pair after frozen OpenAPI 1.20.0 / schema.v1.22.
+ * Not an export profile and not a product migration number. */
+export const INTAKE_SHOP_DIRECTORY_REASONS = Object.freeze([
+  'SHOP_DIRECTORY_CURSOR', 'SHOP_DIRECTORY_SESSION', 'SHOP_DISPLAY_MISSING',
+  'SHOP_DIRECTORY_CHANGED', 'SHOP_DIRECTORY_EXPIRED', 'SHOP_DIRECTORY_UNAVAILABLE',
+]);
+export const INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS = Object.freeze({
+  openapi: `${development}/openapi.v1.21.yaml`,
+  database: `${development}/schema.v1.23.sql`,
+  increment: `${development}/18-P2店铺目录合同候选.md`,
+  installation: `${development}/content-intake-runtime-candidate/installation.generated.json`,
+});
+export const INTAKE_SHOP_DIRECTORY_SOURCES = Object.freeze({
+  openapi: `${development}/content-intake-shop-directory-candidate/openapi.delta.json`,
+  storage: `${development}/content-intake-shop-directory-candidate/storage.delta.sql`,
+});
+export const INTAKE_RUNTIME_SOURCES = Object.freeze({
+  roles: `${development}/content-intake-runtime-candidate/roles.sql`,
+  organization: `${development}/content-intake-runtime-candidate/organization.sql`,
+  session: `${development}/content-intake-runtime-candidate/session-lock.sql`,
+  acl: `${development}/content-intake-runtime-candidate/purpose-acl.sql`,
+  directoryAcl: `${development}/content-intake-runtime-candidate/directory-acl.sql`,
+});
+export function buildIntakeShopDirectoryContractFiles(readSource) {
+  const base = buildIntakeDirectContractFiles(readSource);
+  const raw = JSON.parse(readSource(INTAKE_SHOP_DIRECTORY_SOURCES.openapi));
+  if (JSON.stringify(raw.failureReasons) !== JSON.stringify(INTAKE_SHOP_DIRECTORY_REASONS)) {
+    throw new Error('Unexpected shop-directory reasons');
+  }
+  const delta = { paths: raw.paths, components: raw.components };
+  let openapi = base.openapi.toString('utf8');
+  const insert = (anchor, value) => {
+    if (openapi.split(anchor).length !== 2) throw new Error(`Non-unique shop-directory anchor: ${anchor}`);
+    openapi = openapi.replace(anchor, anchor + value);
+  };
+  if (openapi.split('  version: 1.20.0\n').length !== 2) throw new Error('Shop-directory predecessor must be 1.20.0');
+  openapi = openapi.replace('  version: 1.20.0\n', '  version: 1.21.0\n');
+  const routes = Object.keys(delta.paths);
+  if (routes.length !== 1 || routes[0] !== '/v1/intake/shop-directory') throw new Error('Unexpected shop-directory routes');
+  for (const [route, item] of Object.entries(delta.paths)) {
+    if (openapi.includes(`  ${JSON.stringify(route)}:`)) throw new Error(`Shop-directory route collision: ${route}`);
+    if (Object.keys(item).join() !== 'get') throw new Error('Unexpected shop-directory method');
+    insert('paths:\n', `  ${JSON.stringify(route)}: ${JSON.stringify({ get: { ...item.get, security: [{ ProductSession: [] }] } })}\n`);
+  }
+  const schemaNames = Object.keys(delta.components.schemas);
+  if (schemaNames.length !== 2 || schemaNames.sort().join() !== 'IntakeShopDirectory,IntakeShopDisplay') {
+    throw new Error('Unexpected shop-directory schemas');
+  }
+  for (const [name, schema] of Object.entries(delta.components.schemas)) {
+    if (openapi.includes(`    ${name}:`)) throw new Error(`Shop-directory schema collision: ${name}`);
+    insert('  schemas:\n', `    ${name}: ${JSON.stringify(schema)}\n`);
+  }
+  const failureLines = openapi.split('\n').filter(line => line.startsWith('    IntakeFailure: '));
+  if (failureLines.length !== 1) throw new Error('IntakeFailure anchor');
+  const failure = JSON.parse(failureLines[0].slice('    IntakeFailure: '.length));
+  const reasons = failure.properties.details.properties.reason.enum;
+  for (const reason of INTAKE_SHOP_DIRECTORY_REASONS) {
+    if (reasons.includes(reason)) throw new Error(`Shop-directory reason already present: ${reason}`);
+    reasons.push(reason);
+  }
+  openapi = openapi.replace(failureLines[0] + '\n', `    IntakeFailure: ${JSON.stringify(failure)}\n`);
+  openapi += '\nx-content-intake-shop-directory-development: ' + JSON.stringify({
+    status: 'DRAFT', runtime_activated: false, sqlContract: 'schema.v1.23', exportApproved: false,
+    frozenOpenapi: '1.20.0', frozenSchema: 'schema.v1.22', nameGrantsBusinessAction: false,
+  }) + '\n';
+  const storage = readSource(INTAKE_SHOP_DIRECTORY_SOURCES.storage);
+  if (/CREATE OR REPLACE FUNCTION content_intake\.authorization_deadline/.test(storage.toString())) {
+    throw new Error('Shop directory must not replace authorization_deadline');
+  }
+  const runtime = Object.fromEntries(Object.entries(INTAKE_RUNTIME_SOURCES).map(([key, source]) => [key, readSource(source)]));
+  for (const bytes of Object.values(runtime)) {
+    if (/intake_runtime_probe|intake_org_candidate|CREATE(?: OR REPLACE)? FUNCTION content_intake\.(?:authorization_deadline|publish_candidate|preview_rollback|execute_rollback)/i.test(bytes.toString())) {
+      throw new Error('Runtime candidate must use formal names and preserve frozen business function bodies');
+    }
+  }
+  const capabilities = ['intake_runtime_fn_owner','intake_usage','intake_business','intake_worker','intake_org_writer','intake_directory_fn_owner','intake_directory_key_operator'];
+  const expectedRoles = capabilities.map(role => `CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION;`).join(' ');
+  if (runtime.roles.toString().replace(/^--.*$/gm,'').replace(/\s+/g,' ').trim() !== expectedRoles) {
+    throw new Error('Runtime role bootstrap must contain only the exact NOLOGIN capabilities without credentials or memberships');
+  }
+  const block = (name, bytes) => [Buffer.from(`\n-- BEGIN INTAKE RUNTIME ${name} ${digest(bytes)}\n`), bytes, Buffer.from(`-- END INTAKE RUNTIME ${name}\n`)];
+  openapi += 'x-content-intake-runtime-development: ' + JSON.stringify({status:'DRAFT', runtime_activated:false,
+    sqlContract:'schema.v1.23', mappingVersion:'feishu-contact-job-title-v1', purposeRolesLogin:false,
+    sourceCommit:'cff9fa9b611a5f77de465b3a5ee1022c64027d9c', exportApproved:false}) + '\n';
+  const database = Buffer.concat([
+    Buffer.from('-- schema.v1.23 — DRAFT runtime integration; frozen schema.v1.22 bytes follow unchanged\n'), base.database,
+    ...block('ROLES',runtime.roles),...block('ORGANIZATION',runtime.organization),...block('SESSION',runtime.session),
+    Buffer.from(`\n-- BEGIN INTAKE SHOP DIRECTORY ${digest(storage)}\n`),storage,Buffer.from('-- END INTAKE SHOP DIRECTORY\n'),
+    ...block('DIRECTORY ACL',runtime.directoryAcl),
+  ]);
+  const provenancePath = `${development}/content-intake-runtime-candidate/provenance.json`;
+  const protocolPath = `${development}/content-intake-runtime-candidate/protocol.json`;
+  const provenanceBytes = readSource(provenancePath);
+  const protocolBytes = readSource(protocolPath);
+  const provenance = JSON.parse(provenanceBytes);
+  const protocol = JSON.parse(protocolBytes);
+  if (provenance.status !== 'DRAFT' || provenance.sourceCommit !== 'cff9fa9b611a5f77de465b3a5ee1022c64027d9c'
+    || protocol.status !== 'DRAFT' || protocol.organizationMappingVersion !== 'feishu-contact-job-title-v1') {
+    throw new Error('Runtime candidate provenance/protocol mismatch');
+  }
+  const sources = Object.fromEntries(Object.entries(runtime).map(([key,bytes])=>[key,{path:INTAKE_RUNTIME_SOURCES[key],sha256:digest(bytes)}]));
+  sources.directory={path:INTAKE_SHOP_DIRECTORY_SOURCES.storage,sha256:digest(storage)};
+  sources.provenance={path:provenancePath,sha256:digest(provenanceBytes)};
+  sources.protocol={path:protocolPath,sha256:digest(protocolBytes)};
+  const installation={schema:'content-intake-installation/v1',status:'DRAFT',exportApproved:false,sqlContract:'schema.v1.23',
+    openapi:{path:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.openapi,sha256:digest(Buffer.from(openapi))},
+    database:{path:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.database,sha256:digest(database)},sources,
+    referenceMode:{artifact:'database',includes:['roles','organization','session','directory','directoryAcl'],runtimeReady:false},
+    productMode:{implementation:provenance.implementationDependencies,
+      order:['product-migrations','roles','organization','session','directory','directoryAcl','acl','environment-login-bindings'],
+      atomicCandidateInstall:true,skipMissingDependencies:false},
+    requiredBundleArtifacts:['openapi','database','installation',...Object.keys(sources)],
+    capabilityLogin:false,environmentCredentialsIncluded:false,companionAclRequired:true,
+    exporterCondition:'A versioned profile must include and verify ALL requiredBundleArtifacts, exact approval hashes and product implementation dependency hashes; the old two-file exporter cannot release this candidate.'};
+  return {openapi:Buffer.from(openapi),database,installation:Buffer.from(JSON.stringify(installation,null,2)+'\n')};
+
+}
 const PUBLISH_OWNER_ONLY = `      operationId: publishContent
       summary: 将 staged 批次发布为新的 current release
       description: |
@@ -179,17 +520,23 @@ export function buildOpsLoopContractFiles(readSource) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish'];
-  if (args.length !== 1 || !allowed.includes(args[0])) throw new Error('Use --write, --check, --write-closure, --check-closure, --write-ops-loop, --check-ops-loop, --write-coach-publish or --check-coach-publish');
+  const allowed = ['--write','--check','--write-closure','--check-closure','--write-ops-loop','--check-ops-loop','--write-coach-publish','--check-coach-publish','--write-intake','--check-intake','--write-intake-usage','--check-intake-usage','--write-intake-quality','--check-intake-quality','--write-intake-management','--check-intake-management','--write-intake-direct','--check-intake-direct','--write-intake-shop-directory','--check-intake-shop-directory'];
+  if (args.length !== 1 || !allowed.includes(args[0])) throw new Error(`Use exactly one of: ${allowed.join(', ')}`);
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
   const coachPublish = args[0].endsWith('-coach-publish');
+  const shopDirectory = args[0].endsWith('-intake-shop-directory');
+  const intake = args[0].endsWith('-intake');
+  const usage = args[0].endsWith('-intake-usage');
+  const quality = args[0].endsWith('-intake-quality');
+  const direct = args[0].endsWith('-intake-direct');
+  const management = args[0].endsWith('-intake-management');
   const opsLoop = args[0].endsWith('-ops-loop');
   const closure = args[0].endsWith('-closure');
-  const files = (coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
-  const paths = coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
+  const files = (shopDirectory ? buildIntakeShopDirectoryContractFiles : direct ? buildIntakeDirectContractFiles : management ? buildIntakeManagementContractFiles : quality ? buildIntakeQualityContractFiles : usage ? buildIntakeUsageContractFiles : intake ? buildIntakeContractFiles : coachPublish ? buildCoachPublishContractFiles : opsLoop ? buildOpsLoopContractFiles : closure ? buildClosureContractFiles : buildBackendContractFiles)(source => readFileSync(path.join(root,source)));
+  const paths = shopDirectory ? INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS : direct ? INTAKE_DIRECT_CONTRACT_PATHS : management ? INTAKE_MANAGEMENT_CONTRACT_PATHS : quality ? INTAKE_QUALITY_CONTRACT_PATHS : usage ? INTAKE_USAGE_CONTRACT_PATHS : intake ? INTAKE_CONTRACT_PATHS : coachPublish ? COACH_PUBLISH_CONTRACT_PATHS : opsLoop ? OPS_LOOP_CONTRACT_PATHS : closure ? CLOSURE_CONTRACT_PATHS : BACKEND_CONTRACT_PATHS;
   for (const [key,bytes] of Object.entries(files)) {
     const target = path.join(root,paths[key]);
-    if (args[0].startsWith('--write')) writeFileSync(target,bytes);
+    if (args[0].startsWith('--write') && !((quality || management) && key === 'database')) writeFileSync(target,bytes);
     else if (!readFileSync(target).equals(bytes)) throw new Error(`Backend generated drift: ${key}`);
     console.log(`${key} ${digest(bytes)} ${bytes.length} bytes`);
   }

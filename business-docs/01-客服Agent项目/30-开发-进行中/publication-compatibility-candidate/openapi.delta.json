@@ -1,0 +1,76 @@
+{
+  "schema": "publication-compatibility-openapi-proposal/v1",
+  "status": "DRAFT",
+  "formalVersion": null,
+  "exportProfile": null,
+  "predecessor": {
+    "path": "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.23.yaml",
+    "sha256": "82443864e4459af4a9575b304ccecfcbb2cbb4e3c1f08cff13bd512616fe54b0"
+  },
+  "capabilityRoles": [
+    "coach",
+    "owner"
+  ],
+  "httpRuntimeRoles": [
+    "owner"
+  ],
+  "operations": [
+    {
+      "op": "test",
+      "path": "/info/x-phase1-invariants/ownerOnlyWrites",
+      "value": [
+        "POST /v1/content/publish",
+        "POST /v1/content/rollback",
+        "POST /v1/policy/flags"
+      ]
+    },
+    {
+      "op": "replace",
+      "path": "/info/x-phase1-invariants/ownerOnlyWrites",
+      "value": [
+        "POST /v1/content/rollback",
+        "POST /v1/policy/flags"
+      ]
+    },
+    {
+      "op": "test",
+      "path": "/paths/~1v1~1content~1publish/post/x-required-roles",
+      "value": [
+        "coach",
+        "owner"
+      ]
+    },
+    {
+      "op": "add",
+      "path": "/paths/~1v1~1content~1publish/post/x-current-http-runtime-profile",
+      "value": {
+        "roles": [
+          "owner"
+        ],
+        "coachHttpEnabled": false,
+        "note": "SQL capability keeps the approved in-scope coach branch. Current product HTTP rejects non-owner before taking the admin pool. This proposal does not activate coach HTTP."
+      }
+    },
+    {
+      "op": "test",
+      "path": "/components/schemas/MetricsStreamItem/properties/push_method",
+      "value": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/PushMethod"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/components/schemas/MetricsStreamItem/properties/push_method",
+      "value": {
+        "$ref": "#/components/schemas/PushMethod"
+      }
+    }
+  ]
+}

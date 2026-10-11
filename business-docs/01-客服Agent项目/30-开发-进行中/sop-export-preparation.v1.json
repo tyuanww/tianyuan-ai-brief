@@ -1,0 +1,29 @@
+{
+  "schema": "customer-agent-sop-export-preparation/v1",
+  "status": "PREPARED_NOT_EXPORTED",
+  "exportApproved": false,
+  "intakeApproved": false,
+  "productionConsumerReady": false,
+  "syntheticOnly": true,
+  "currentProfile": "content-intake-legacy-check-v1",
+  "sopProfile": "content-intake-sop-xlsx-v1",
+  "sopProfileInExporterAllowlist": false,
+  "approval": "business-docs/01-客服Agent项目/90-评审/2026-10-10_SOP合同冻结批准.md",
+  "openapi": {
+    "version": "1.23.0",
+    "path": "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.23.yaml",
+    "sha256": "82443864e4459af4a9575b304ccecfcbb2cbb4e3c1f08cff13bd512616fe54b0"
+  },
+  "database": {
+    "version": "1.26",
+    "path": "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.26.sql",
+    "sha256": "1c0a4e508ea0aab97d40abff4829ea5a0ce65882ad6a044187fc231872bbe39c"
+  },
+  "productMigration": null,
+  "notEvidenceOf": [
+    "formal export",
+    "product intake",
+    "production activation",
+    "complete /review"
+  ]
+}

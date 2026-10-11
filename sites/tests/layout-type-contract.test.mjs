@@ -1,3 +1,4 @@
+import { SECURITY_ARCHIVE_NAME } from "../scripts/build-security-maintenance-archive.mjs";
 /**
  * Layout / type-scale contract for decision brief CSS.
  * Asserts the shipped app.css encodes non-overlap, badge centering, and adaptive table type.
@@ -10,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const archiveRoot = path.resolve(root, "../archive/2026-08-09-ai-project-brief-security-maintenance");
+const archiveRoot = path.resolve(root, `../archive/${SECURITY_ARCHIVE_NAME}`);
 const cssPath = path.join(archiveRoot, "css/app.css");
 
 async function readCss() {

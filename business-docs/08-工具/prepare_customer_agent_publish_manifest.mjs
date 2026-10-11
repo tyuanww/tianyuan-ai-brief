@@ -260,11 +260,16 @@ function sanitizeRemote(remote) {
   }
 }
 
+// Each dated snapshot owns its companion manifest, including future maintenance dates.
+function securityArchivePrefix(filePath) {
+  return filePath.match(/^(archive\/\d{4}-\d{2}-\d{2}-ai-project-brief-security-maintenance)(?:\/|\.manifest\.json$)/)?.[1];
+}
+
 function groupFor(filePath) {
   if (filePath.startsWith("business-docs/02-供应链项目/")) return "supply-chain";
   if (filePath.startsWith("business-docs/03-设计组-PSD与AI调研/")) return "design-research";
   if (
-    filePath.startsWith("archive/2026-08-09-ai-project-brief-security-maintenance") ||
+    securityArchivePrefix(filePath) ||
     filePath === "sites/scripts/build-security-maintenance-archive.mjs" ||
     filePath === "sites/tests/security-maintenance-archive.test.mjs"
   ) {
@@ -360,12 +365,10 @@ export function validateAtomicRelationships(entries) {
     );
   }
 
-  const securityArchiveTriggered = entries.some((entry) =>
-    entry.path.startsWith("archive/2026-08-09-ai-project-brief-security-maintenance"),
-  );
-  if (securityArchiveTriggered) {
+  const securityArchives = new Set(entries.map((entry) => securityArchivePrefix(entry.path)).filter(Boolean));
+  for (const prefix of securityArchives) {
     for (const filePath of [
-      "archive/2026-08-09-ai-project-brief-security-maintenance.manifest.json",
+      `${prefix}.manifest.json`,
       "sites/scripts/build-security-maintenance-archive.mjs",
       "sites/tests/security-maintenance-archive.test.mjs",
     ]) {

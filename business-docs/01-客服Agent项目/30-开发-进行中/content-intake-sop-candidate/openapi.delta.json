@@ -1,0 +1,185 @@
+{
+  "schema": "customer-agent-content-intake-sop-media-boundary/v1",
+  "status": "DRAFT",
+  "exportApproved": false,
+  "intakeApproved": false,
+  "productionConsumerReady": false,
+  "syntheticOnly": true,
+  "base": {
+    "inputContract": "sop-xlsx-v1",
+    "contentIntakeOpenApi": "1.22.0",
+    "contentIntakeSchema": "1.24",
+    "profile": "content-intake-sop-xlsx-v1"
+  },
+  "security": {
+    "session": "ProductSession",
+    "sourceScope": "server-resolved-from-session-and-sourceId",
+    "preview": "current-entitlement-and-release-scope-required",
+    "noClientRoleOrScope": true,
+    "noDirectObjectStoreUrl": true
+  },
+  "paths": {
+    "/v1/intake/sources/{sourceId}/objects": {
+      "post": {
+        "operationId": "uploadSopWorkbookObject",
+        "purpose": "receive-original-xlsx",
+        "required": ["sourceId", "operationId", "idempotencyKey", "sha256", "bytes", "mime"],
+        "accepts": {
+          "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "maxBytes": 10485760,
+          "purpose": "input"
+        },
+        "rules": [
+          "The server resolves source scope and import authority before adopting the object.",
+          "The original bytes and sha256 are retained; client MIME and filename are not format proof.",
+          "A committed upload returns objectId; a commit-unknown result is retried by the same operationId only."
+        ]
+      }
+    },
+    "/v1/intake/sources/{sourceId}/candidates": {
+      "post": {
+        "operationId": "receiveSopCandidate",
+        "purpose": "parse-and-materialize-sop-candidate",
+        "required": ["sourceId", "objectId", "sourceVersion", "operationId", "expectedPriorKey"],
+        "rules": [
+          "The object must belong to sourceId and must be parsed with sop-xlsx-v1.",
+          "The parser returns all six worksheet categories, row text and same-row media references.",
+          "A blocking issue returns no usable rows or attachments and creates no publishable candidate.",
+          "sourceId plus explicit version or raw file sha256 is the idempotency key.",
+          "A replay returns the existing candidate or the existing operation result without duplicate media links."
+        ]
+      }
+    },
+    "/v1/intake/candidates/{candidateId}/versions/{version}/material": {
+      "get": {
+        "operationId": "getSopCandidateMaterial",
+        "purpose": "read-synthetic-or-authorized-candidate-material",
+        "response": {
+          "mediaRefs": "SopMediaRef[]",
+          "externalHyperlinks": "labels-only"
+        },
+        "rules": [
+          "Media references are immutable after the candidate digest is fixed.",
+          "The response does not expose object-store keys or permanent URLs.",
+          "Rows and attachments are returned only when the caller has the candidate source scope."
+        ]
+      }
+    },
+    "/v1/intake/candidates/{candidateId}/versions/{version}/publish": {
+      "post": {
+        "operationId": "publishSopCandidate",
+        "purpose": "publish-text-and-media-snapshot",
+        "rules": [
+          "The server rechecks source mode, import/publish authority, quality state, candidate digest and base release.",
+          "Every SopMediaRef must be adopted and bound to the same source before the release transaction starts.",
+          "Release rows and release-media links are committed atomically; no partial text-only or media-only release is valid.",
+          "The confirmation dialog expresses user intent only; it is not approval evidence.",
+          "COMMIT_UNKNOWN is returned as 503 and keeps the operationId for recovery."
+        ]
+      }
+    },
+    "/v1/intake/releases/{releaseId}/sop-media/{mediaObjectId}": {
+      "get": {
+        "operationId": "previewPublishedSopMedia",
+        "purpose": "controlled-inline-preview",
+        "response": {
+          "contentType": "image/png|image/jpeg|image/gif",
+          "body": "media-bytes",
+          "cacheControl": "private, no-store"
+        },
+        "rules": [
+          "The server checks current product session, entitlement, release scope, release-media link and media state on every request.",
+          "An absent or inaccessible concrete release/media pair returns the same 404 NOT_FOUND result.",
+          "The response never redirects to an external URL and never grants a reusable object-store URL.",
+          "Copy actions operate on the row text; media preview is a separate read and is never copied as answer text."
+        ]
+      }
+    },
+    "/v1/intake/rollback": {
+      "post": {
+        "operationId": "rollbackSopRelease",
+        "purpose": "rollback-text-and-media-snapshot",
+        "rules": [
+          "The rollback plan includes every source and media link in the target release.",
+          "Partial source loss is an all-release refusal and maps to 403 SCOPE_DENIED; complete loss maps to 404 NOT_FOUND.",
+          "Rollback creates a new release lineage and does not mutate the historical release or attachment rows.",
+          "A media link cannot be removed while a protected release or active entitlement references it."
+        ]
+      }
+    },
+    "/v1/intake/operations/{operationId}": {
+      "get": {
+        "operationId": "getSopOperation",
+        "purpose": "recover-upload-parse-publish-or-rollback-result",
+        "rules": [
+          "The lookup is bound to the current session, action and operation namespace.",
+          "Unknown commit is recovered with the original operationId; a new key does not create a second publish.",
+          "Permission loss after a confirmed commit cannot erase the committed object or release; it only blocks later replay/read."
+        ]
+      }
+    }
+  },
+  "schemas": {
+    "SopMediaRef": {
+      "required": ["mediaObjectId", "sheet", "row", "column", "mime", "bytes", "sha256", "ordinal"],
+      "fields": {
+        "mediaObjectId": "opaque server identifier",
+        "sheet": {
+          "enum": [
+            "过敏流程SOP",
+            "少错破SOP",
+            "品质售后SOP",
+            "税收相关规则",
+            "品牌对接资源汇总",
+            "长痘痘SOP"
+          ]
+        },
+        "row": "positive worksheet row number",
+        "column": "positive worksheet column number",
+        "mime": "image/png|image/jpeg|image/gif",
+        "bytes": "positive integer <= 5242880",
+        "sha256": "lowercase 64-hex digest",
+        "ordinal": "positive same-row appearance order"
+      },
+      "immutableAfter": "candidate-digest"
+    },
+    "SopPreviewReference": {
+      "fields": ["releaseId", "mediaObjectId", "sheet", "row", "mime", "sha256"],
+      "permanentUrl": false,
+      "externalUrl": false
+    }
+  },
+  "stateTransitions": {
+    "mediaObject": [
+      "staged -> adopted",
+      "staged -> discarded",
+      "adopted -> released",
+      "released -> retained-until-unreferenced"
+    ],
+    "candidate": [
+      "awaiting-evidence -> ready",
+      "ready -> publishing",
+      "publishing -> published",
+      "awaiting-evidence|ready -> cancelled",
+      "published -> invalidated"
+    ],
+    "noPartialState": true,
+    "referencedMediaDelete": "forbidden"
+  },
+  "errors": {
+    "IMAGE_WITHOUT_TEXT": "400 VALIDATION",
+    "MEDIA_UNAVAILABLE": "409 CONFLICT",
+    "MEDIA_NOT_READY": "409 CONFLICT",
+    "SOURCE_CHANGED": "409 CONFLICT",
+    "SCOPE_DENIED": "404 concrete-resource-not-found-or-inaccessible",
+    "COMMIT_UNKNOWN": "503 recover-with-same-operationId"
+  },
+  "notYetApproved": [
+    "production_http_path_names",
+    "database_migration_number",
+    "attachment_retention_period",
+    "object_store_provider_and_encryption_profile",
+    "real_feishu_source_binding",
+    "production_runner_activation"
+  ]
+}

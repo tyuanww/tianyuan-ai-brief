@@ -1,0 +1,1175 @@
+{
+  "paths": {
+    "/v1/intake/candidates/{candidateId}/versions/{version}/review": {
+      "post": {
+        "operationId": "requestIntakeHumanReview",
+        "summary": "审批写入已停用（仅保留旧历史读取）",
+        "description": "direct-v1 profile 下此审批写入已停用，返回409 CONFLICT / MODE_CONFLICT；不发起或刷新飞书审批，不生成假 approved。旧记录可通过同资源 GET 读取历史，不续期。",
+        "tags": [
+          "content-intake"
+        ],
+        "responses": {
+          "400": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "会话未认证或失效，重新登录；不披露资源存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "与资源存在性无关的全局能力/策略拒绝。涉及具体资源无权统一使用404。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或无访问权，返回相同脱敏 NOT_FOUND。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/IntakeVersion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeReviewRequest"
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "x-direct-profile-read-only": true
+      },
+      "get": {
+        "operationId": "getIntakeHumanReview",
+        "summary": "读取最近有效审核事实",
+        "description": "只读既有审批历史，不发起、刷新或延长事实截止。旧审批过期/撤销继续约束历史内容；direct-v1 候选没有审批记录。",
+        "tags": [
+          "content-intake"
+        ],
+        "responses": {
+          "200": {
+            "description": "读取最近有效审核事实",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeReview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "会话未认证或失效，重新登录；不披露资源存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "与资源存在性无关的全局能力/策略拒绝。涉及具体资源无权统一使用404。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或无访问权，返回相同脱敏 NOT_FOUND。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/IntakeVersion"
+            }
+          }
+        ],
+        "x-direct-profile-read-only": true
+      }
+    },
+    "/v1/intake/candidates/{candidateId}/versions/{version}/review/refresh": {
+      "post": {
+        "operationId": "refreshIntakeHumanReview",
+        "summary": "审批写入已停用（仅保留旧历史读取）",
+        "description": "direct-v1 profile 下此审批写入已停用，返回409 CONFLICT / MODE_CONFLICT；不发起或刷新飞书审批，不生成假 approved。旧记录可通过同资源 GET 读取历史，不续期。",
+        "tags": [
+          "content-intake"
+        ],
+        "responses": {
+          "400": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "会话未认证或失效，重新登录；不披露资源存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "与资源存在性无关的全局能力/策略拒绝。涉及具体资源无权统一使用404。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或无访问权，返回相同脱敏 NOT_FOUND。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/IntakeVersion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeReviewRequest"
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "x-direct-profile-read-only": true
+      }
+    },
+    "/v1/intake/candidates/{candidateId}/versions/{version}/publish": {
+      "post": {
+        "operationId": "publishIntakeCandidate",
+        "summary": "二次确认后按当前权限直接发布",
+        "description": "direct-v1 专用。请求必须 confirmed=true；不接受审批版本、不创建或刷新飞书审批。事务重验当前会话、组织事实、动作与来源范围，绑定精确候选 key 或回退 impactDigest、baseReleaseId。来源/质量/内容期限及并发 CAS 不变。旧 approval-v1 候选拒绝首次直发；须显式修订新版本。已确认未知操作保留原 operationId/载荷恢复，不改 base 后重放；历史回执不授当前权限。取消原生确认不请求接口。旧审批撤销或过期不能因迁移自动恢复；详见 17-P2权限配置与确认直发合同候选.md。",
+        "tags": [
+          "content-intake"
+        ],
+        "responses": {
+          "202": {
+            "description": "发布精确候选及证据版本",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "会话未认证或失效，重新登录；不披露资源存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "与资源存在性无关的全局能力/策略拒绝。涉及具体资源无权统一使用404。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或无访问权，返回相同脱敏 NOT_FOUND。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/IntakeVersion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakePublish"
+              }
+            }
+          }
+        },
+        "x-publication-policy": "direct-v1"
+      }
+    },
+    "/v1/intake/rollback": {
+      "post": {
+        "operationId": "rollbackIntakeRelease",
+        "summary": "二次确认后执行有权影响集的纠正回退",
+        "description": "direct-v1 专用。请求必须 confirmed=true；不接受审批版本、不创建或刷新飞书审批。事务重验当前会话、组织事实、动作与来源范围，绑定精确候选 key 或回退 impactDigest、baseReleaseId。来源/质量/内容期限及并发 CAS 不变。旧 approval-v1 候选拒绝首次直发；须显式修订新版本。已确认未知操作保留原 operationId/载荷恢复，不改 base 后重放；历史回执不授当前权限。取消原生确认不请求接口。旧审批撤销或过期不能因迁移自动恢复；详见 17-P2权限配置与确认直发合同候选.md。",
+        "tags": [
+          "content-intake"
+        ],
+        "responses": {
+          "202": {
+            "description": "提交已批准的全范围回退",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeRollbackReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "会话未认证或失效，重新登录；不披露资源存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "与资源存在性无关的全局能力/策略拒绝。涉及具体资源无权统一使用404。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或无访问权，返回相同脱敏 NOT_FOUND。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeRollback"
+              }
+            }
+          }
+        },
+        "x-publication-policy": "direct-v1"
+      }
+    },
+    "/v1/intake/rollback/{rollbackPlanId}/review": {
+      "post": {
+        "operationId": "requestIntakeRollbackReview",
+        "summary": "审批写入已停用（仅保留旧历史读取）",
+        "description": "direct-v1 profile 下此审批写入已停用，返回409 CONFLICT / MODE_CONFLICT；不发起或刷新飞书审批，不生成假 approved。旧记录可通过同资源 GET 读取历史，不续期。",
+        "tags": [
+          "content-intake"
+        ],
+        "responses": {
+          "400": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "会话未认证或失效，重新登录；不披露资源存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "与资源存在性无关的全局能力/策略拒绝。涉及具体资源无权统一使用404。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或无访问权，返回相同脱敏 NOT_FOUND。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "rollbackPlanId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/IntakeId"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeRollbackReviewRequest"
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "x-direct-profile-read-only": true
+      },
+      "get": {
+        "operationId": "getIntakeRollbackReview",
+        "summary": "查询全目录回退计划人工审核事实",
+        "description": "只读既有审批历史，不发起、刷新或延长事实截止。旧审批过期/撤销继续约束历史内容；direct-v1 候选没有审批记录。",
+        "tags": [
+          "content-intake"
+        ],
+        "responses": {
+          "400": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "会话未认证或失效，重新登录；不披露资源存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "与资源存在性无关的全局能力/策略拒绝。涉及具体资源无权统一使用404。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或无访问权，返回相同脱敏 NOT_FOUND。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "读取已绑定的回退人工审核及其有效截止",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeRollbackReview"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "rollbackPlanId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/IntakeId"
+            }
+          }
+        ],
+        "x-direct-profile-read-only": true
+      }
+    },
+    "/v1/intake/rollback/{rollbackPlanId}/review/refresh": {
+      "post": {
+        "operationId": "refreshIntakeRollbackReview",
+        "summary": "审批写入已停用（仅保留旧历史读取）",
+        "description": "direct-v1 profile 下此审批写入已停用，返回409 CONFLICT / MODE_CONFLICT；不发起或刷新飞书审批，不生成假 approved。旧记录可通过同资源 GET 读取历史，不续期。",
+        "tags": [
+          "content-intake"
+        ],
+        "responses": {
+          "400": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "会话未认证或失效，重新登录；不披露资源存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "与资源存在性无关的全局能力/策略拒绝。涉及具体资源无权统一使用404。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或无访问权，返回相同脱敏 NOT_FOUND。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "按 error.code / details.reason 采取规定恢复动作；不披露资源权限或存在性。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "rollbackPlanId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/IntakeId"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeRollbackReviewRequest"
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "x-direct-profile-read-only": true
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "IntakePublish": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "key",
+          "baseReleaseId",
+          "sourceEvidenceVersion",
+          "title",
+          "summary",
+          "confirmed"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "key": {
+            "$ref": "#/components/schemas/IntakeCandidateKey"
+          },
+          "baseReleaseId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "sourceEvidenceVersion": {
+            "$ref": "#/components/schemas/IntakeVersion"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "confirmed": {
+            "type": "boolean",
+            "const": true,
+            "description": "明确的本次发布意图；桌面仅在 Main 原生二次确认后设置。不能替代服务端权限/版本/来源/质量复核，也不能证明任意第三方调用者弹过窗。"
+          }
+        }
+      },
+      "IntakeRollback": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operationId",
+          "baseReleaseId",
+          "targetReleaseId",
+          "impactDigest",
+          "rollbackPlanId",
+          "confirmed"
+        ],
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "baseReleaseId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "targetReleaseId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "impactDigest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "rollbackPlanId": {
+            "$ref": "#/components/schemas/IntakeId"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "const": true,
+            "description": "明确的本次发布意图；桌面仅在 Main 原生二次确认后设置。不能替代服务端权限/版本/来源/质量复核，也不能证明任意第三方调用者弹过窗。"
+          }
+        }
+      },
+      "IntakeCandidate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "sourceId",
+          "state",
+          "readinessReasons",
+          "sourceEvidenceVersion",
+          "approvalEvidenceVersion",
+          "revocationGeneration",
+          "createdAt",
+          "updatedAt",
+          "publishedReleaseId",
+          "publicationPolicy"
+        ],
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/IntakeCandidateKey"
+          },
+          "sourceId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "awaiting-evidence",
+              "ready",
+              "publishing",
+              "published",
+              "cancelled",
+              "invalidated"
+            ]
+          },
+          "readinessReasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "minItems": 0,
+            "maxItems": 32
+          },
+          "sourceEvidenceVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "approvalEvidenceVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "revocationGeneration": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 35
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 35
+          },
+          "publishedReleaseId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "publicationPolicy": {
+            "type": "string",
+            "enum": [
+              "approval-v1",
+              "direct-v1"
+            ],
+            "description": "服务端冻结的候选发布政策。旧候选不可原地改成直发；须显式修订为新版本。"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "publicationPolicy": {
+                  "const": "direct-v1"
+                }
+              },
+              "required": [
+                "publicationPolicy"
+              ]
+            },
+            "then": {
+              "properties": {
+                "approvalEvidenceVersion": {
+                  "const": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

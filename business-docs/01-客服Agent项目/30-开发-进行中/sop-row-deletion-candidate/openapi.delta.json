@@ -1,0 +1,80 @@
+{
+  "status": "DRAFT",
+  "formalVersion": null,
+  "predecessor": {
+    "path": "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.23.yaml",
+    "sha256": "82443864e4459af4a9575b304ccecfcbb2cbb4e3c1f08cff13bd512616fe54b0"
+  },
+  "proposedOperation": {
+    "method": "POST",
+    "path": "/v1/intake/sop/candidates/{candidateId}/versions/{version}/row-deletions",
+    "actor": "authenticated product session, never body principal",
+    "request": {
+      "required": [
+        "operationId",
+        "key",
+        "rowId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "operationId": {
+          "$ref": "#/components/schemas/IntakeId"
+        },
+        "key": {
+          "$ref": "#/components/schemas/IntakeCandidateKey"
+        },
+        "rowId": {
+          "type": "string",
+          "pattern": "^sop:[^:]{1,128}:[1-9][0-9]{0,3}$"
+        }
+      }
+    },
+    "response": {
+      "status": 200,
+      "schema": "IntakeCandidate",
+      "emptyResult": "cancelled original candidate; never an empty publishable catalog"
+    },
+    "permission": "candidate-cancel, current tenant/app/source and four-role ceiling; import separately required for trusted row binding",
+    "replay": "same actor/operation/body returns durable response; changed body conflicts; COMMIT_UNKNOWN preserves preview until replay",
+    "failures": {
+      "missingOrUnauthorized": 404,
+      "changedOrPublished": 409,
+      "malformed": 400
+    },
+    "oldDelete": "unchanged and not granted to intake_business; successor consumer must migrate explicitly"
+  },
+  "trustedParserStage": {
+    "function": "freeze_sop_parsed_candidate(text,text,jsonb,jsonb,jsonb)",
+    "read": "read_sop_inherited_assets(text,text)",
+    "validatedRecovery": "frozenMedia exposes only job result exact row/media payload descriptors; validated jobs also expose own pendingPayloads for guarded redundant-payload cleanup; original freeze state/material/registration digest checks still apply",
+    "authority": "current import; actor and job bound; complete material/row/media registration in one transaction",
+    "internalOnly": [
+      "register_sop_candidate_rows",
+      "stage_sop_candidate_assets",
+      "stage_sop_candidate_media",
+      "sop_payload_transition",
+      "adopt_sop_payloads"
+    ],
+    "payloadCapabilities": [
+      "reserve_sop_media_payload(text,text,text,text,bigint,text)",
+      "complete_sop_media_payload(text,text,text,text)",
+      "begin_sop_media_release(text,text,text,text)",
+      "complete_sop_media_release(text,text,text,text)"
+    ],
+    "usageRead": "read_sop_release_assets(text,text,text)",
+    "publication": "AFTER INSERT statement projection on release_lineage; exact row mapping and persisted payload required; immutable release media",
+    "mediaItemRequired": "payloadObjectId",
+    "payloadPurpose": "sop-media",
+    "byteTrust": "Server parser validates actual bytes; SQL validates source, version, metadata hashes and complete row provenance; no arbitrary HTTP material input"
+  },
+  "invariants": [
+    "immutable old material",
+    "new version resets source evidence and quality",
+    "published/history/adopted rows cannot be removed",
+    "only exclusive unused media is discarded; shared media survives",
+    "last unused row cancels upload",
+    "unbound old candidates fail closed and require reimport",
+    "same content version never restores deleted rows; new version reuse preserves immutable deletion history",
+    "no automatic expiry or physical object deletion"
+  ]
+}

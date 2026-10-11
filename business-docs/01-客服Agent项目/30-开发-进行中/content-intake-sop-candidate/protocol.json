@@ -1,0 +1,102 @@
+{
+  "schema": "customer-agent-content-intake-sop-xlsx-candidate/v1",
+  "status": "DRAFT",
+  "exportApproved": false,
+  "intakeApproved": false,
+  "productionConsumerReady": false,
+  "syntheticOnly": true,
+  "policyVersion": "sop-xlsx-v1",
+  "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "templateVersion": "sop-xlsx-v1",
+  "scope": {
+    "source": "registered-source-context",
+    "fields": ["sourceId", "brandId", "scope", "scopeKind", "selectedSheets"],
+    "scopeKind": ["brand", "shop"],
+    "selectedSheets": [
+      "过敏流程SOP",
+      "少错破SOP",
+      "品质售后SOP",
+      "税收相关规则",
+      "品牌对接资源汇总",
+      "长痘痘SOP"
+    ],
+    "exactSheetSet": true
+  },
+  "normalization": {
+    "rowId": "sop:<sheet>:<row>",
+    "text": "all_non_empty_text_cells_in_column_order_joined_by_newline",
+    "preserveCellNewlines": true,
+    "richText": "concatenate_text_runs",
+    "nonTextCells": "reject",
+    "category": "worksheet_name"
+  },
+  "media": {
+    "role": "auxiliary_explanation",
+    "embeddedOnly": true,
+    "extensions": ["png", "jpeg", "gif"],
+    "sameRowAllImages": true,
+    "metadata": ["id", "sheet", "row", "column", "ordinal", "mime", "bytes", "sha256"],
+    "externalHyperlinks": "retain_label_only_never_follow",
+    "imageWithoutText": "reject_batch",
+    "nonSopAttachments": "ignore"
+  },
+  "version": {
+    "explicitHeaders": ["版本", "版本号"],
+    "precedence": ["consistent_non_empty_explicit_value", "raw_file_sha256"],
+    "conflictingValues": "reject_batch",
+    "idempotencyKey": "sourceId + NUL + version"
+  },
+  "failClosed": {
+    "blockingIssueCodes": [
+      "INVALID_CONTEXT",
+      "MISSING_SHEET",
+      "UNKNOWN_SHEET",
+      "NON_TEXT_CELL",
+      "MEDIA_UNAVAILABLE",
+      "MEDIA_LIMIT",
+      "IMAGE_WITHOUT_TEXT",
+      "VERSION_CONFLICT",
+      "EMPTY_DATA",
+      "INVALID_XLSX",
+      "INVALID_ZIP",
+      "FILE_TOO_LARGE",
+      "EXPANDED_LIMIT",
+      "ZIP_ENTRY_LIMIT",
+      "UNSAFE_ZIP_PATH",
+      "ZIP_NAME_MISMATCH",
+      "ZIP_SIZE_MISMATCH",
+      "ACTIVE_CONTENT",
+      "EXTERNAL_RESOURCE",
+      "INVALID_COORDINATE",
+      "CELL_LIMIT",
+      "COORDINATE_LIMIT",
+      "AMBIGUOUS_COORDINATE",
+      "STRING_LIMIT",
+      "INVALID_ZIP_XML",
+      "CELL_TEXT_LIMIT",
+      "NORMALIZED_TEXT_LIMIT"
+    ],
+    "partialRowsReturned": false,
+    "partialAttachmentsReturned": false
+  },
+  "syntheticBudgets": {
+    "fileBytes": 10485760,
+    "expandedBytes": 52428800,
+    "zipEntries": 512,
+    "rows": 5000,
+    "columns": 32,
+    "cells": 200000,
+    "cellChars": 32767,
+    "normalizedTextChars": 3000000,
+    "mediaCount": 100,
+    "oneMediaBytes": 5242880,
+    "mediaBytes": 20971520
+  },
+  "notYetDefined": [
+    "production_http_paths",
+    "database_tables_and_migrations",
+    "attachment_retention",
+    "real_feishu_source_binding",
+    "production_runner_activation"
+  ]
+}

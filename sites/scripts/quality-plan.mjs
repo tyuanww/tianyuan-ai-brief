@@ -10,6 +10,15 @@ export const releaseSteps = [
   'test:backend-candidate', 'check:backend-contract', 'lint:backend-openapi',
   'test:ops-loop-candidate', 'check:ops-loop-contract', 'lint:ops-loop-openapi',
   'test:coach-publish-candidate', 'check:coach-publish-contract', 'lint:coach-publish-openapi',
+  'test:intake-contract', 'check:intake-contract', 'lint:intake-openapi',
+  'test:intake-usage-contract', 'check:intake-usage-contract', 'lint:intake-usage-openapi',
+  'test:intake-quality-contract', 'check:intake-quality-contract', 'lint:intake-quality-openapi',
+  'test:intake-management-contract', 'check:intake-management-contract', 'lint:intake-management-openapi',
+  'test:intake-direct-contract', 'check:intake-direct-contract', 'lint:intake-direct-openapi',
+  'test:intake-shop-directory-contract', 'check:intake-shop-directory-contract', 'lint:intake-shop-directory-openapi',
+  'test:intake-csv-contract', 'check:intake-csv-contract', 'lint:intake-csv-openapi',
+  'test:intake-sop-media-boundary', 'test:repair-successor:export',
+  'test:intake-runtime-closure-contract', 'check:intake-runtime-closure-contract',
   'test:sql-grammar', 'test:architecture-contract', 'check:arch-diagrams', 'audit:deps',
 ];
 

@@ -1,13 +1,14 @@
+import { SECURITY_ARCHIVE_NAME } from "../scripts/build-security-maintenance-archive.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
+const {
   buildDecisionReceipt,
   buildMeetingConclusionText,
   evaluateCheckGate,
   sha256,
   verifyDecisionReceipt,
-} from "../../archive/2026-08-09-ai-project-brief-security-maintenance/js/modules/decision-model.js";
+} = await import(`../../archive/${SECURITY_ARCHIVE_NAME}/js/modules/decision-model.js`);
 
 function decisionBlock() {
   return {

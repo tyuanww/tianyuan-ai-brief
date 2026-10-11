@@ -1,0 +1,15 @@
+{
+  "selectionIds": {
+    "type": "array",
+    "items": {
+      "$ref": "#/components/schemas/IntakeId"
+    },
+    "minItems": 0,
+    "maxItems": 100,
+    "uniqueItems": true,
+    "description": "显式选择；空集合只匹配无该类限制的条目。API 按 C/ASCII 顺序排序后绑定资格，选择不能增加访问范围。"
+  },
+  "vocabularyLimit": 100,
+  "entitlementDescription": "P2 仅签当前 release。productIds/scenarioIds 必填，按登记词项的 kind、tenant/app/brand 与当前店授权核验后规范排序；未知/越界词项同样返回脱敏 NOT_FOUND。产品会话来自认证层，禁止 body/sessionId/userId/token/hash。服务端同事务保存会话私有 token_hash、选择集合与 entitlement 的绑定；截止还必须受产品会话截止约束。丢签发响应可重签但旧资格不得延长。",
+  "snapshotDescription": "仅接受 entitlementId/cursor/limit；当前认证产品会话必须与资格持久绑定一致。每页从数据库重读原 shop/contextGeneration/选择集合及会话有效性，不依赖进程内当前选择或 renderer 重传。缺少绑定的旧资格失败关闭并重新申请。普通新发布保留原资格期限，换店/选择由 Main 增加代际并立即撤销旧界面动作；该代际不是授权。分页先做范围/选择/时段过滤，再按词项预算完整返回条目。"
+}

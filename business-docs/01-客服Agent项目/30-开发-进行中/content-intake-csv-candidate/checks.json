@@ -1,0 +1,328 @@
+{
+  "status": "DRAFT",
+  "freezeApproved": false,
+  "exportApproved": false,
+  "runtimeActivated": false,
+  "baseCommit": "830e1c826b2ee479146ccd23d7437e634b4b6be8",
+  "inputs": {
+    "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.22.yaml": "3f741eb980aba1cd9a2a273b25771b50299e1aef3acbc6a1579b57541ed43a94",
+    "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.24.sql": "c4ceffa961728423b755b00d551b9ab67fbf33ffe1dd87d8e671f6d151f744c5",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/installation.generated.json": "e7bee22391c96c498d96e20e868cbf90429405ac3793eeb02bbc93e817939a28",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/protocol.json": "ff83a005795f6a5bdd6597329d93c5fdc132267613886b701193bdf8583b62ca",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-csv-candidate/storage.delta.sql": "f88db715af84ff0a4dc056ab3a37fdaf71cdd0ae439a78b2d565952a1b93b535",
+    "business-docs/01-客服Agent项目/30-开发-进行中/19-P2CSV资料输入合同候选.md": "d471f4b616b59732b1c573957a499a28637d4f4e4ceee0ea8055163a7be827e5",
+    "business-docs/01-客服Agent项目/30-开发-进行中/README.md": "8d404590552a1d53511a84867b8d9a5e4f30d6559e27a407156648cd4d1a7391",
+    "business-docs/08-工具/README.md": "5e8716ca6813e20be0526ee6dada831861eaa52f9c5973a19f73a5fc17a3018d",
+    "business-docs/08-工具/build_customer_agent_csv_contract.mjs": "b204758aa544741b55cb1f4afbea1945d46746439522067bca6002b0bed959d9",
+    "business-docs/08-工具/export_customer_agent_contract_set.mjs": "edfeb81602dfd2b20e934153aeeb1d1915895ef58741fd730128f7c921879a56",
+    "sites/tests/content-intake-csv-contract.test.mjs": "62f4873be1ae47381597fce598f3fe7f054f3d829f5646ea93f1072648a96cf5",
+    "sites/tests/content-intake-csv-export.test.mjs": "99351f1a3d0940b6bcf12b7b4e2fdcb8007dc06d746a58b17c71379cc560b4ae",
+    "sites/tests/content-intake-csv-contract.pg.mjs": "60dbb24a3eed8c6110e8d5d5fa4eed28772c1b746e2945d2a3c043e8d9d833be",
+    "sites/package.json": "dc6d762deccd5c20a6818b2b4db62ea77992c29711c407fcd1664dd1e1fd0466",
+    "sites/package-lock.json": "57ec56e0c415b56694b64f339d30ea001d77b7b0e4142630fd49cb0ff14039e0",
+    "sites/scripts/quality-plan.mjs": "c4f37714d07d3e19228a40fb2f8fafee2171c2740ee7d45be9f5f18718b3c688",
+    "sites/tests/release-test-wiring.test.mjs": "f32a9f52953c13f4530d8d7d1deb2a1b5d2e22f75c4879c7783eaa35389e83f1"
+  },
+  "checks": {
+    "node": {
+      "status": "PASS",
+      "passed": 7,
+      "command": "npm --prefix sites run test:intake-csv-contract",
+      "evidence": "release.log:test:intake-csv-contract"
+    },
+    "pg15": {
+      "status": "PASS",
+      "passed": 35,
+      "command": "npm --prefix sites run test:intake-csv-contract:pg",
+      "transport": "disposable Unix socket, no inherited PG connection",
+      "roleBoundary": "owner validates DDL guards; not purpose LOGIN or HTTP evidence"
+    },
+    "release": {
+      "status": "PASS",
+      "exitCode": 0,
+      "command": "npm --prefix sites run test:release",
+      "completedSteps": 44,
+      "steps": [
+        {
+          "name": "test",
+          "duration": "117.57s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:boundary-integration",
+          "duration": "41.03s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:layout-ui",
+          "duration": "4.99s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:ui",
+          "duration": "72.96s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:arch-board-ui",
+          "duration": "11.39s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:business",
+          "duration": "36.52s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:customer-agent-python-tools",
+          "duration": "3.24s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:openapi",
+          "duration": "4.48s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:owner-contract",
+          "duration": "0.12s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:owner-openapi",
+          "duration": "2.57s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:backend-candidate",
+          "duration": "0.33s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:backend-contract",
+          "duration": "17.59s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:backend-openapi",
+          "duration": "1.63s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:ops-loop-candidate",
+          "duration": "0.30s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:ops-loop-contract",
+          "duration": "0.12s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:ops-loop-openapi",
+          "duration": "0.81s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:coach-publish-candidate",
+          "duration": "0.26s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:coach-publish-contract",
+          "duration": "0.11s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:coach-publish-openapi",
+          "duration": "0.81s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-contract",
+          "duration": "26.07s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-contract",
+          "duration": "0.14s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-openapi",
+          "duration": "1.00s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-usage-contract",
+          "duration": "36.14s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-usage-contract",
+          "duration": "0.17s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-usage-openapi",
+          "duration": "6.69s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-quality-contract",
+          "duration": "48.07s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-quality-contract",
+          "duration": "0.17s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-quality-openapi",
+          "duration": "0.80s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-management-contract",
+          "duration": "66.84s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-management-contract",
+          "duration": "0.17s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-management-openapi",
+          "duration": "1.14s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-direct-contract",
+          "duration": "76.13s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-direct-contract",
+          "duration": "0.17s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-direct-openapi",
+          "duration": "2.85s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-shop-directory-contract",
+          "duration": "61.96s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-shop-directory-contract",
+          "duration": "0.19s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-shop-directory-openapi",
+          "duration": "1.69s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-csv-contract",
+          "duration": "59.55s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-csv-contract",
+          "duration": "0.11s",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-csv-openapi",
+          "duration": "9.14s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:sql-grammar",
+          "duration": "0.30s",
+          "exitCode": 0
+        },
+        {
+          "name": "test:architecture-contract",
+          "duration": "0.26s",
+          "exitCode": 0
+        },
+        {
+          "name": "check:arch-diagrams",
+          "duration": "1.85s",
+          "exitCode": 0
+        },
+        {
+          "name": "audit:deps",
+          "duration": "4.81s",
+          "exitCode": 0
+        }
+      ],
+      "inputsUnchangedDuringRun": true
+    },
+    "externalReview": {
+      "status": "INCOMPLETE",
+      "rerun": false
+    },
+    "independentReview": {
+      "status": "NO_MUST_FIX_FINDINGS",
+      "reviewer": "csv_final_review",
+      "scope": "CSV SQL/OpenAPI/generator/exporter and explicit isolated PG test routing; not external review"
+    }
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "npm": "11.17.0",
+    "postgresql": "15.18",
+    "platform": "macOS arm64",
+    "dependencyInstall": false
+  },
+  "logs": {
+    "release.log": {
+      "path": "output/content-intake-csv-contract/release.log",
+      "sha256": "fd012facde0fe10890a7a708e1bc7abc93e72fa5c3f3c80901afc8eb907932e8",
+      "bytes": 224593,
+      "status": "PASS"
+    },
+    "pg.log": {
+      "path": "output/content-intake-csv-contract/pg.log",
+      "sha256": "1e6cf8bcdbb5d01be3e569d6c04080f7bd91674d55c109663a6c1242731484d8",
+      "bytes": 135,
+      "status": "PASS"
+    },
+    "install.log": {
+      "path": "output/content-intake-csv-contract/install.log",
+      "sha256": "fd393650578fccb8d62bad7321068613739c06861f275f13fa64415b963f328d",
+      "bytes": 11652,
+      "status": "PASS"
+    },
+    "pg-summary.json": {
+      "path": "output/content-intake-csv-contract/pg-summary.json",
+      "sha256": "f7c1723a5f39454d5e3bc28a532e9641c8da4a0392ef63fa83e3e850f053f2ca",
+      "bytes": 39,
+      "status": "PASS"
+    },
+    "release-before-pg-route-fix.log": {
+      "path": "output/content-intake-csv-contract/release-before-pg-route-fix.log",
+      "sha256": "99691c2f19d1c374348fb8c2629240a4e1e0f46d6b862194298f94c2f5877aef",
+      "bytes": 29018,
+      "status": "FAILED_TEST_ROUTING_SUPERSEDED"
+    },
+    "release-before-object-source-review.log": {
+      "path": "output/content-intake-csv-contract/release-before-object-source-review.log",
+      "sha256": "4acd16bb8d5ac9b700714ff32b6abca4b833fa40e410b67567ee24ffc5b3d282",
+      "bytes": 28652,
+      "status": "INTERRUPTED_130_SUPERSEDED"
+    }
+  },
+  "frozenPredecessor": {
+    "openapi.v1.21.yaml": "bde5124df711333e6860c0cea1734f47fe5c45c95b56c0d5cde3d2e9466246d7",
+    "schema.v1.23.sql": "4c2969459265262fabfe38ae425ab8c1275c46274d03ae09ec39b75ae9cc978e"
+  }
+}

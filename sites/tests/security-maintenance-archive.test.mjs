@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
@@ -41,8 +42,9 @@ test("安全维护与公开脱敏快照可由锁定依赖确定性重建", async
   assert.equal(result.manifest.maintenanceType, "security-and-public-redaction");
   assert.deepEqual(result.manifest.redactions, ["historical-exact-costs"]);
   assert.deepEqual(result.manifest.runtimeDependencies, {
-    dompurify: "3.4.13",
+    dompurify: "3.4.16",
     mermaid: "10.9.8",
+    katex: "0.18.2",
   });
   assert.equal(result.receipt.relativeFiles.length, 30);
 });
@@ -88,12 +90,14 @@ test("新旧快照只允许安全和公开脱敏白名单差异", async () => {
     stat(path.join(SECURITY_ARCHIVE_ROOT, "vendor/mermaid-10.9.6.min.js")),
     { code: "ENOENT" }
   );
-  await stat(path.join(SECURITY_ARCHIVE_ROOT, "vendor/dompurify-3.4.13.es.mjs"));
+  await stat(path.join(SECURITY_ARCHIVE_ROOT, "vendor/dompurify-3.4.16.es.mjs"));
   await stat(path.join(SECURITY_ARCHIVE_ROOT, "vendor/mermaid-10.9.8.min.js"));
 
   const architecture = await readFile(path.join(SECURITY_ARCHIVE_ROOT, "ARCHITECTURE.md"), "utf8");
+  assert.doesNotMatch(architecture, /[ \t]+$/m, "新快照必须通过暂存 diff 检查");
+  assert.ok(architecture.includes("分离）" + "\\" + "\n>"), "保留历史 Markdown 硬换行");
   assert.match(architecture, /Mermaid 固定为 10\.9\.8/);
-  assert.match(architecture, /DOMPurify 固定为 3\.4\.13/);
+  assert.match(architecture, /DOMPurify 固定为 3\.4\.16/);
   assert.doesNotMatch(architecture, /Mermaid 固定为 10\.9\.6|DOMPurify 固定为 3\.4\.12/);
 
   const manifest = JSON.parse(await readFile(SECURITY_MANIFEST_PATH, "utf8"));
@@ -111,4 +115,28 @@ test("新旧快照只允许安全和公开脱敏白名单差异", async () => {
   const publicContent = await readFile(path.join(SECURITY_ARCHIVE_ROOT, "data/content.json"), "utf8");
   assert.match(publicContent, /精确金额已按公开边界脱敏/);
   assert.doesNotMatch(publicContent, /7000 \/ 5000 \/ 10000|7000 元|5000 元|10000 元/);
+});
+
+test("补丁进入实际 vendor，原始及前次安全归档保持不变", async () => {
+  const previousRoot = path.resolve(BASE_ARCHIVE_ROOT, "../2026-08-09-ai-project-brief-security-maintenance");
+  const previousManifest = await readFile(`${previousRoot}.manifest.json`);
+  assert.equal(sha256(previousManifest), "7d643e5c542c61bd843f3ba83a50d1e11ac0536c1f7f079f7227f8c844259b6c");
+  assert.equal(await fileSha(previousRoot, "data/content.json"), await fileSha(SECURITY_ARCHIVE_ROOT, "data/content.json"));
+  assert.deepEqual(
+    await readFile(path.join(SECURITY_ARCHIVE_ROOT, "vendor/dompurify-3.4.16.es.mjs")),
+    await readFile(new URL("../node_modules/dompurify/dist/purify.es.mjs", import.meta.url)),
+  );
+  await assert.rejects(stat(path.join(SECURITY_ARCHIVE_ROOT, "vendor/dompurify-3.4.13.es.mjs")), { code: "ENOENT" });
+});
+
+test("Mermaid 的 KaTeX 依赖忽略继承的 trust，实际 vendor 使用修复版本", async () => {
+  const require = createRequire(new URL("../node_modules/mermaid/package.json", import.meta.url));
+  const katex = require("katex");
+  assert.equal(katex.version, "0.18.2");
+  const formula = String.raw`\href{https://example.invalid/synthetic}{synthetic}`;
+  assert.match(katex.renderToString(formula, { trust: true }), /href="https:\/\/example.invalid/);
+  assert.doesNotMatch(katex.renderToString(formula, Object.create({ trust: true })), /href=/);
+  const vendor = await readFile(path.join(SECURITY_ARCHIVE_ROOT, "vendor/mermaid-10.9.8.min.js"), "utf8");
+  assert.ok(vendor.includes('0.18.2'));
+  assert.notEqual(sha256(vendor), sha256(await readFile(new URL("../node_modules/mermaid/dist/mermaid.min.js", import.meta.url))));
 });

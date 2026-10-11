@@ -1,0 +1,233 @@
+{
+  "status": "DRAFT_NOT_FROZEN",
+  "baseCommit": "7e4a3bdbd866cd078856c85b9572a3bad735c9bb",
+  "scope": "synthetic shop directory candidate recovery only",
+  "environment": {
+    "node": "v24.19.0",
+    "postgres": "15.18",
+    "platform": "macOS arm64"
+  },
+  "inputs": {
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-shop-directory-candidate/storage.delta.sql": "581ad0e79c75f71ac6857f7fde82e093e5c9def90fd4b95c1fe87ca0d2e712d5",
+    "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-shop-directory-candidate/openapi.delta.json": "340f13be881ef166376f4d1150aac05e8667671ee94c6b10a30b07fb7b481cdc",
+    "business-docs/01-客服Agent项目/30-开发-进行中/openapi.v1.21.yaml": "9006074a831319e37c58b41b5c8f1a66cf15719c3a73dc64018994f66964cf60",
+    "business-docs/01-客服Agent项目/30-开发-进行中/schema.v1.23.sql": "effa92603dc316f401b66a8cb5bab7e1790115be270cddfc2eb0bff02e2e686e",
+    "business-docs/01-客服Agent项目/30-开发-进行中/18-P2店铺目录合同候选.md": "509d2352704484060ccd946e60c932f8865dadd79497962043b9821869ebc93c",
+    "sites/tests/content-intake-shop-directory-contract.pg.mjs": "7ea63caf5563a0f06899a1e67c6a47bf5d30c82342bbadeb53c3d70f96326e29",
+    "sites/tests/content-intake-shop-directory-contract.test.mjs": "73098633f2178d5a06e1a72d1938a76d6c8fc07f202db2b97de4919c496ad649"
+  },
+  "logs": {
+    "recovery-release.log": "5fea577edbc309787eff4ae4016090274aad4da8db94602d2294fe14be181d11",
+    "recovery-unit.log": "40559ecf0191361fca3525392fa4b1fec52f19d00092fbc7c889fe4149ff4946",
+    "recovery-generated.log": "f6a33e5ea844d2775ede265769c30a51f45514fba1f04e90c8036781dec72b91",
+    "recovery-openapi.log": "f6536f8383acc31d4e26d284c885a53b15079fc31e7d94792cff64713253cff4",
+    "recovery-pg.log": "834615b89f9dac6876d6824e8046402e50a31db4de7775432715c5e9d26dad56",
+    "install.log": "51a5db5d1390eb20a08eddfdaaae3dc7954d60d8e85414c41af7de02ca415bf2",
+    "pg-summary.json": "87dd9d681faca5acbe2a15a94c7d36a095639935ecddbc249450bb43f19514f7",
+    "test-release.log": "f8a9ad4119a48cc42031ac5c9c594ae71adac0859738f1e68e3876108700a234",
+    "before-recovery/review-probe.log": "58d66691056092716aaa4b63a3649353d38c9650aaf0be3ca0fa40de13ae7f8e",
+    "before-recovery/install.log": "5ebca18df99fd30624a86f652a379a376fdbbcea95f06300305d0c497d8b6350",
+    "before-recovery/pg-summary.json": "576af760b27f76bb96a6477f9350ac11aa9b8b4a96ddfbb3fce210fd5d9a0165",
+    "recovery-docs.log": "3328f7bafca83eb385ef92b2eb22b9a80988632592f492bb519fea1ce8638705"
+  },
+  "validation": {
+    "pg15": {
+      "checks": 140,
+      "exitCode": 0,
+      "note": "Includes disposable DB HMAC-delay injection; not a production performance claim."
+    },
+    "contractUnit": {
+      "tests": 3,
+      "exitCode": 0
+    },
+    "generator": {
+      "exitCode": 0
+    },
+    "openapiLint": {
+      "exitCode": 0,
+      "existingWarnings": 23
+    },
+    "release": {
+      "exitCode": 0,
+      "steps": [
+        {
+          "name": "test",
+          "exitCode": 0
+        },
+        {
+          "name": "test:boundary-integration",
+          "exitCode": 0
+        },
+        {
+          "name": "test:layout-ui",
+          "exitCode": 0
+        },
+        {
+          "name": "test:ui",
+          "exitCode": 0
+        },
+        {
+          "name": "test:arch-board-ui",
+          "exitCode": 0
+        },
+        {
+          "name": "test:business",
+          "exitCode": 0
+        },
+        {
+          "name": "test:customer-agent-python-tools",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "check:owner-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:owner-openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "test:backend-candidate",
+          "exitCode": 0
+        },
+        {
+          "name": "check:backend-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:backend-openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "test:ops-loop-candidate",
+          "exitCode": 0
+        },
+        {
+          "name": "check:ops-loop-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:ops-loop-openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "test:coach-publish-candidate",
+          "exitCode": 0
+        },
+        {
+          "name": "check:coach-publish-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:coach-publish-openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-usage-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-usage-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-usage-openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-quality-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-quality-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-quality-openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-management-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-management-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-management-openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-direct-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-direct-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-direct-openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "test:intake-shop-directory-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "check:intake-shop-directory-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "lint:intake-shop-directory-openapi",
+          "exitCode": 0
+        },
+        {
+          "name": "test:sql-grammar",
+          "exitCode": 0
+        },
+        {
+          "name": "test:architecture-contract",
+          "exitCode": 0
+        },
+        {
+          "name": "check:arch-diagrams",
+          "exitCode": 0
+        },
+        {
+          "name": "audit:deps",
+          "exitCode": 0
+        }
+      ],
+      "coverage": "COMPOSITE: final RETURN clock guard and PG test were added after release started. All unaffected steps are reused. Final-byte PG140, contract3, generation and OpenAPI lint separately passed; release later repeats final candidate checks. This is not claimed as one immutable final-input full-suite run."
+    },
+    "docsFast": {
+      "exitCode": 0
+    }
+  },
+  "externalFullReview": "INCOMPLETE",
+  "remainingFreezeConditions": [
+    "steward registration/revocation/rotation governance",
+    "private signing key custody/injection/lifetime/rotation",
+    "trusted caller session verification, global content/revocation lock ordering and final transaction deadline integration",
+    "version allocation and formal approval/export/intake"
+  ],
+  "realDataAccess": false,
+  "runtimeActivated": false
+}

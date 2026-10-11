@@ -30,14 +30,98 @@ import {
   buildOpsLoopContractFiles,
   COACH_PUBLISH_CONTRACT_PATHS,
   buildCoachPublishContractFiles,
+  INTAKE_CONTRACT_PATHS,
+  INTAKE_APPROVAL_PATH,
+  buildIntakeContractFiles,
+  INTAKE_USAGE_CONTRACT_PATHS,
+  INTAKE_USAGE_APPROVAL_PATH,
+  buildIntakeUsageContractFiles,
+  INTAKE_QUALITY_CONTRACT_PATHS,
+  INTAKE_QUALITY_APPROVAL_PATH,
+  buildIntakeQualityContractFiles,
+  INTAKE_MANAGEMENT_CONTRACT_PATHS,
+  INTAKE_MANAGEMENT_APPROVAL_PATH,
+  buildIntakeManagementContractFiles,
+  INTAKE_DIRECT_CONTRACT_PATHS,
+  INTAKE_DIRECT_APPROVAL_PATH,
+  buildIntakeDirectContractFiles,
+  buildIntakeShopDirectoryContractFiles, INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS, INTAKE_SHOP_DIRECTORY_SOURCES, INTAKE_RUNTIME_SOURCES,
 } from "./build_customer_agent_backend_contract.mjs";
+
+import { buildCsvContractFiles, CSV_PATHS, CSV_SOURCES } from "./build_customer_agent_csv_contract.mjs";
+import { buildRuntimeClosure, CLOSURE_PATHS as LEGACY_CHECK_GENERATED_PATHS } from "./build_customer_agent_runtime_closure.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryRoot = path.resolve(path.dirname(scriptPath), "../..");
 const defaultOutputRoot = path.join(repositoryRoot, "output/customer-agent-contract-sets");
 
 export const CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v1";
-export const CONTRACT_SET_TOOL_VERSION = "1.2.0";
+export const CONTRACT_SET_TOOL_VERSION = "1.10.0";
+export const RUNTIME_CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v2";
+export const INTAKE_RUNTIME_APPROVAL_PATH = "business-docs/01-客服Agent项目/90-评审/2026-10-08_P2运行接入合同批准.md";
+export const RUNTIME_BUNDLE_PATHS = Object.freeze({
+  installation: {source_path:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.installation,file:'intake-runtime-installation.v1.json'},
+  roles: {source_path:INTAKE_RUNTIME_SOURCES.roles,file:'intake-runtime-roles.v1.sql'},
+  organization: {source_path:INTAKE_RUNTIME_SOURCES.organization,file:'intake-runtime-organization.v1.sql'},
+  session: {source_path:INTAKE_RUNTIME_SOURCES.session,file:'intake-runtime-session.v1.sql'},
+  acl: {source_path:INTAKE_RUNTIME_SOURCES.acl,file:'intake-runtime-acl.v1.sql'},
+  directoryAcl: {source_path:INTAKE_RUNTIME_SOURCES.directoryAcl,file:'intake-runtime-directory-acl.v1.sql'},
+  directory: {source_path:INTAKE_SHOP_DIRECTORY_SOURCES.storage,file:'intake-shop-directory.v1.sql'},
+  provenance: {source_path:'business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/provenance.json',file:'intake-runtime-provenance.v1.json'},
+  protocol: {source_path:'business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/protocol.json',file:'intake-runtime-protocol.v1.json'},
+});
+
+
+export const CSV_CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v3";
+export const INTAKE_CSV_APPROVAL_PATH = "business-docs/01-客服Agent项目/90-评审/2026-10-08_P2CSV输入合同批准.md";
+export const CSV_BUNDLE_PATHS = Object.freeze({...RUNTIME_BUNDLE_PATHS,
+  installation:{source_path:CSV_PATHS.installation,file:'intake-csv-installation.v1.json'},
+  csv:{source_path:CSV_SOURCES.storage,file:'intake-csv-format.v1.sql'},
+  csvProtocol:{source_path:CSV_SOURCES.protocol,file:'intake-csv-protocol.v1.json'},
+});
+export function assertIntakeCsvExportGate(readSource,hashes) {
+  assertFrozenIntakePair(readSource,hashes,{paths:CSV_PATHS,predecessor:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS,
+    approvalPath:INTAKE_CSV_APPROVAL_PATH,label:'P2 CSV 输入合同',anchor:'**P2 CSV 机器合同增量：**'});
+  const generated=buildCsvContractFiles(readSource);
+  for(const key of ['openapi','database','installation']) if(!readSource(CSV_PATHS[key]).equals(generated[key])) throw new Error(`CSV 派生产物漂移：${key}`);
+  for(const [file,anchor] of [[INTAKE_CSV_APPROVAL_PATH,'**批准安装清单：**'],[CSV_PATHS.increment,'**CSV 安装清单：**']]) {
+    const lines=linesForAnchor(utf8(readSource(file),file),file,anchor);
+    if(lines.length!==1 || lines[0].match(/[0-9a-f]{64}/g)?.join()!==sha256(generated.installation)) throw new Error('CSV 安装清单批准哈希不一致');
+  }
+  return JSON.parse(generated.installation);
+}
+
+
+
+export const LEGACY_CHECK_CONTRACT_SET_SCHEMA = "customer-agent-contract-set/v4";
+export const INTAKE_LEGACY_CHECK_APPROVAL_PATH = "business-docs/01-客服Agent项目/90-评审/2026-10-09_P2旧内容校验ACL合同批准.md";
+export const LEGACY_CHECK_CONTRACT_PATHS = Object.freeze({
+  openapi: CSV_PATHS.openapi, database: LEGACY_CHECK_GENERATED_PATHS.database,
+  installation: LEGACY_CHECK_GENERATED_PATHS.manifest,
+  increment: "business-docs/01-客服Agent项目/30-开发-进行中/content-intake-runtime-candidate/legacy-check-contract.md",
+});
+export const LEGACY_CHECK_BUNDLE_PATHS = Object.freeze({...CSV_BUNDLE_PATHS,
+  installation: {source_path:LEGACY_CHECK_GENERATED_PATHS.manifest,file:'intake-legacy-check-installation.v1.json'},
+  csvInstallation: {source_path:CSV_PATHS.installation,file:'intake-csv-installation.v1.json'},
+  legacyAcl: {source_path:LEGACY_CHECK_GENERATED_PATHS.delta,file:'intake-legacy-check-acl.v1.sql'},
+});
+export function assertIntakeLegacyCheckExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {paths:LEGACY_CHECK_CONTRACT_PATHS,predecessor:CSV_PATHS,
+    approvalPath:INTAKE_LEGACY_CHECK_APPROVAL_PATH,label:'P2 旧内容校验 ACL 合同',anchor:'**P2 旧内容校验 ACL 机器合同增量：**'});
+  const generated=buildRuntimeClosure(readSource);
+  for (const [key,bytes] of Object.entries(generated)) if(!readSource(LEGACY_CHECK_GENERATED_PATHS[key]).equals(bytes)) throw new Error(`旧内容校验派生产物漂移：${key}`);
+  for (const [file,anchor,bytes] of [
+    [INTAKE_LEGACY_CHECK_APPROVAL_PATH,'**批准安装清单：**',generated.manifest],
+    [LEGACY_CHECK_CONTRACT_PATHS.increment,'**旧内容校验安装清单：**',generated.manifest],
+    [INTAKE_LEGACY_CHECK_APPROVAL_PATH,'**批准 ACL 增量：**',readSource(LEGACY_CHECK_GENERATED_PATHS.delta)],
+    [LEGACY_CHECK_CONTRACT_PATHS.increment,'**旧内容校验 ACL 增量：**',readSource(LEGACY_CHECK_GENERATED_PATHS.delta)],
+  ]) {
+    const lines=linesForAnchor(utf8(readSource(file),file),file,anchor);
+    if(lines.length!==1 || lines[0].match(/[0-9a-f]{64}/g)?.join()!==sha256(bytes)) throw new Error('旧内容校验安装/ACL批准哈希不一致');
+  }
+  return JSON.parse(generated.manifest);
+}
+
 
 export const CONTRACT_SOURCE_PATHS = Object.freeze({
   architecture: "business-docs/01-客服Agent项目/20-设计-进行中/37-架构SSOT-v1.md",
@@ -88,6 +172,7 @@ function runGit(repository, args, { allowFailure = false, encoding = "utf8" } = 
     cwd: repository,
     encoding,
     maxBuffer: 64 * 1024 * 1024,
+    timeout: 60_000,
   });
   if (!allowFailure && result.status !== 0) {
     const stdout = Buffer.isBuffer(result.stdout) ? result.stdout.toString("utf8") : result.stdout;
@@ -263,6 +348,86 @@ export function renderContractSetManifest(manifest) {
   return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
+function assertFrozenIntakePair(readSource, {databaseHash, openapiHash}, {paths, predecessor, approvalPath, label, anchor: incrementAnchor}) {
+  const increment = utf8(readSource(paths.increment), label);
+  if (!/^> 状态：FROZEN · NOT EXPORTED · NOT INTAKE · SYNTHETIC DEVELOPMENT ONLY\r?$/m.test(increment)) {
+    throw new Error(`${label}未冻结`);
+  }
+  for (const [anchor, ddl, api] of [
+    ["**直接前序机器合同：**", sha256(readSource(predecessor.database)), sha256(readSource(predecessor.openapi))],
+    [incrementAnchor, databaseHash, openapiHash],
+    ["**实际产物必须精确匹配：**", databaseHash, openapiHash],
+  ]) {
+    const lines = linesForAnchor(increment, label, anchor);
+    if (lines.length !== 1) throw new Error(`P2 合同声明必须唯一：${anchor}`);
+    hashPairFromLine(lines[0], anchor);
+    assertLineCarriesHashes(lines[0], anchor, ddl, api);
+  }
+  const approval = utf8(readSource(approvalPath), `${label}批准`);
+  if (!/^> 状态：APPROVED · CONTRACT ONLY · SYNTHETIC DEVELOPMENT ONLY\r?$/m.test(approval)) {
+    throw new Error(`缺 ${label}增量批准；前序批准不覆盖本次`);
+  }
+  const approved = linesForAnchor(approval, "P2 合同批准", "**批准产物：**");
+  if (approved.length !== 1) throw new Error("P2 批准必须绑定唯一成对哈希");
+  hashPairFromLine(approved[0], "P2 批准");
+  assertLineCarriesHashes(approved[0], "P2 批准", databaseHash, openapiHash);
+}
+
+export function assertIntakeExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths: INTAKE_CONTRACT_PATHS, predecessor: COACH_PUBLISH_CONTRACT_PATHS,
+    approvalPath: INTAKE_APPROVAL_PATH, label: 'P2 资料接入合同', anchor: '**P2 机器合同增量：**',
+  });
+}
+
+export function assertIntakeUsageExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths: INTAKE_USAGE_CONTRACT_PATHS, predecessor: INTAKE_CONTRACT_PATHS,
+    approvalPath: INTAKE_USAGE_APPROVAL_PATH, label: 'P2 使用资格合同', anchor: '**P2 使用资格机器合同增量：**',
+  });
+}
+
+export function assertIntakeQualityExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths: INTAKE_QUALITY_CONTRACT_PATHS, predecessor: INTAKE_USAGE_CONTRACT_PATHS,
+    approvalPath: INTAKE_QUALITY_APPROVAL_PATH, label: 'P2 质量 HTTP 合同', anchor: '**P2 质量机器合同增量：**',
+  });
+}
+
+export function assertIntakeManagementExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths: INTAKE_MANAGEMENT_CONTRACT_PATHS, predecessor: INTAKE_QUALITY_CONTRACT_PATHS,
+    approvalPath: INTAKE_MANAGEMENT_APPROVAL_PATH, label: 'P2 管理上下文合同', anchor: '**P2 管理上下文机器合同增量：**',
+  });
+}
+
+export function assertIntakeDirectExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths: INTAKE_DIRECT_CONTRACT_PATHS, predecessor: INTAKE_MANAGEMENT_CONTRACT_PATHS,
+    approvalPath: INTAKE_DIRECT_APPROVAL_PATH, label: 'P2 确认直发合同', anchor: '**P2 确认直发机器合同增量：**',
+  });
+}
+
+export function assertIntakeRuntimeExportGate(readSource, hashes) {
+  assertFrozenIntakePair(readSource, hashes, {
+    paths:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS, predecessor:INTAKE_DIRECT_CONTRACT_PATHS,
+    approvalPath:INTAKE_RUNTIME_APPROVAL_PATH,label:'P2 运行接入合同',anchor:'**P2 运行接入机器合同增量：**',
+  });
+  const generated=buildIntakeShopDirectoryContractFiles(readSource);
+  for (const key of ['openapi','database','installation']) {
+    if (!readSource(INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`运行接入派生产物漂移：${key}`);
+  }
+  const installHash=sha256(generated.installation);
+  for (const [file,anchor] of [[INTAKE_RUNTIME_APPROVAL_PATH,'**批准安装清单：**'],[INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.increment,'**运行安装清单：**']]) {
+    const lines=linesForAnchor(utf8(readSource(file),file),file,anchor);
+    if (lines.length!==1 || lines[0].match(/[0-9a-f]{64}/g)?.join()!==installHash) throw new Error('运行安装清单批准哈希不一致');
+  }
+  const install=JSON.parse(generated.installation);
+  const provenance=JSON.parse(readSource(RUNTIME_BUNDLE_PATHS.provenance.source_path));
+  if (JSON.stringify(install.productMode.implementation)!==JSON.stringify(provenance.implementationDependencies)) throw new Error('运行overlay依赖不一致');
+  return install;
+}
+
 export function loadContractSetFromCommit({
   repository = repositoryRoot,
   sourceGitSha,
@@ -270,6 +435,11 @@ export function loadContractSetFromCommit({
   expectedDatabaseSha256,
 }) {
   const exactSourceGitSha = resolveExactSourceCommit(repository, sourceGitSha);
+  // Approval milestones are historical. A shallow boundary can hide a removed
+  // approval and make a downgraded profile look like an unapproved predecessor.
+  if (gitText(repository, ["rev-parse", "--is-shallow-repository"]) !== "false") {
+    throw new Error("合同导出需要完整 Git 历史；浅克隆无法证明批准里程碑，拒绝导出");
+  }
   const readSource = (sourcePath) => gitBlob(repository, exactSourceGitSha, sourcePath);
   // Missing profile is supported only for historical commits. A present but invalid profile
   // fails closed; neither the working tree nor a manifest may select source paths.
@@ -282,14 +452,30 @@ export function loadContractSetFromCommit({
   let closureProfile = false;
   let opsLoopProfile = false;
   let coachPublishProfile = false;
+  let intakeProfile = false;
+  let intakeUsageProfile = false;
+  let intakeQualityProfile = false;
+  let intakeManagementProfile = false;
+  let intakeDirectProfile = false;
+  let intakeRuntimeProfile = false;
+  let intakeCsvProfile = false;
+  let intakeLegacyCheckProfile = false;
   if (ownerProfile) {
     const profile = JSON.parse(utf8(readSource(OWNER_PROFILE_PATH), OWNER_PROFILE_PATH));
     if (Object.keys(profile).sort().join(",") !== "profile,schema"
         || profile.schema !== "customer-agent-contract-profile/v1"
-        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1"].includes(profile.profile)) {
+        || !["owner-acceptance-v1", "backend-synthetic-v1", "backend-closure-v1", "ops-loop-v1", "coach-publish-v1", "content-intake-v2", "content-intake-usage-v1", "content-intake-quality-v1", "content-intake-management-v1", "content-intake-direct-v1", "content-intake-runtime-v1", "content-intake-csv-v1", "content-intake-legacy-check-v1"].includes(profile.profile)) {
       throw new Error("未知或不封闭的合同来源 profile");
     }
-    coachPublishProfile = profile.profile === "coach-publish-v1";
+    intakeLegacyCheckProfile = profile.profile === "content-intake-legacy-check-v1";
+    intakeCsvProfile = intakeLegacyCheckProfile || profile.profile === "content-intake-csv-v1";
+    intakeRuntimeProfile = intakeCsvProfile || profile.profile === "content-intake-runtime-v1";
+    intakeDirectProfile = intakeRuntimeProfile || profile.profile === "content-intake-direct-v1";
+    intakeManagementProfile = intakeDirectProfile || profile.profile === "content-intake-management-v1";
+    intakeQualityProfile = intakeManagementProfile || profile.profile === "content-intake-quality-v1";
+    intakeUsageProfile = intakeQualityProfile || profile.profile === "content-intake-usage-v1";
+    intakeProfile = intakeUsageProfile || profile.profile === "content-intake-v2";
+    coachPublishProfile = intakeProfile || profile.profile === "coach-publish-v1";
     opsLoopProfile = coachPublishProfile || profile.profile === "ops-loop-v1";
     closureProfile = profile.profile === "backend-closure-v1";
     backendProfile = opsLoopProfile || closureProfile || profile.profile === "backend-synthetic-v1";
@@ -300,7 +486,33 @@ export function loadContractSetFromCommit({
   if (!closureProfile && !opsLoopProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", CLOSURE_CONTRACT_PATHS.increment])) throw new Error("拒绝降级 closure profile");
   if (!opsLoopProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", OPS_LOOP_CONTRACT_PATHS.database])) throw new Error("拒绝降级 ops-loop profile");
   if (!coachPublishProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", COACH_PUBLISH_CONTRACT_PATHS.database])) throw new Error("拒绝降级 coach-publish profile");
-  const sourcePaths = coachPublishProfile
+  // A draft may coexist with the current frozen profile. Only an approval milestone
+  // makes a subsequent downgrade illegal; creating a candidate is not approval.
+  if (!intakeProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake profile");
+  if (!intakeUsageProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_USAGE_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-usage profile");
+  if (!intakeQualityProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_QUALITY_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-quality profile");
+  if (!intakeManagementProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_MANAGEMENT_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-management profile");
+  if (!intakeDirectProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_DIRECT_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-direct profile");
+  if (!intakeRuntimeProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_RUNTIME_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-runtime profile");
+  if (!intakeCsvProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_CSV_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-csv profile");
+  if (!intakeLegacyCheckProfile && gitText(repository, ["log", "--full-history", "-1", "--format=%H", exactSourceGitSha, "--", INTAKE_LEGACY_CHECK_APPROVAL_PATH])) throw new Error("拒绝降级 content-intake-legacy-check profile");
+  const sourcePaths = intakeLegacyCheckProfile
+    ? { ...CONTRACT_SOURCE_PATHS,openapi:LEGACY_CHECK_CONTRACT_PATHS.openapi,database:LEGACY_CHECK_CONTRACT_PATHS.database }
+    : intakeCsvProfile
+    ? { ...CONTRACT_SOURCE_PATHS,openapi:CSV_PATHS.openapi,database:CSV_PATHS.database }
+    : intakeRuntimeProfile
+    ? { ...CONTRACT_SOURCE_PATHS,openapi:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.openapi,database:INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.database }
+    : intakeDirectProfile
+    ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_DIRECT_CONTRACT_PATHS.openapi, database: INTAKE_DIRECT_CONTRACT_PATHS.database }
+    : intakeManagementProfile
+    ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_MANAGEMENT_CONTRACT_PATHS.openapi, database: INTAKE_MANAGEMENT_CONTRACT_PATHS.database }
+    : intakeQualityProfile
+    ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_QUALITY_CONTRACT_PATHS.openapi, database: INTAKE_QUALITY_CONTRACT_PATHS.database }
+    : intakeUsageProfile
+    ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_USAGE_CONTRACT_PATHS.openapi, database: INTAKE_USAGE_CONTRACT_PATHS.database }
+    : intakeProfile
+    ? { ...CONTRACT_SOURCE_PATHS, openapi: INTAKE_CONTRACT_PATHS.openapi, database: INTAKE_CONTRACT_PATHS.database }
+    : coachPublishProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: COACH_PUBLISH_CONTRACT_PATHS.openapi, database: COACH_PUBLISH_CONTRACT_PATHS.database }
     : opsLoopProfile
     ? { ...CONTRACT_SOURCE_PATHS, openapi: OPS_LOOP_CONTRACT_PATHS.openapi, database: OPS_LOOP_CONTRACT_PATHS.database }
@@ -417,8 +629,9 @@ export function loadContractSetFromCommit({
 
   if (coachPublishProfile) {
     const generated = buildCoachPublishContractFiles(readSource);
+    const coachBytes = Object.fromEntries(["database", "openapi"].map(key => [key, readSource(COACH_PUBLISH_CONTRACT_PATHS[key])]));
     for (const key of ["database", "openapi"]) {
-      if (!buffers[key].equals(generated[key])) throw new Error(`话术师发布合同派生产物漂移：${key}`);
+      if (!coachBytes[key].equals(generated[key])) throw new Error(`话术师发布合同派生产物漂移：${key}`);
     }
     const increment = utf8(readSource(COACH_PUBLISH_CONTRACT_PATHS.increment), "话术师发布合同");
     if (!/FROZEN · NOT EXPORTED · NOT INTAKE/.test(increment)) {
@@ -426,8 +639,8 @@ export function loadContractSetFromCommit({
     }
     for (const [anchor, ddl, api] of [
       ["**直接前序机器合同：**", sha256(readSource(OPS_LOOP_CONTRACT_PATHS.database)), sha256(readSource(OPS_LOOP_CONTRACT_PATHS.openapi))],
-      ["**DEV-M3 机器合同增量：**", databaseHash, openapiHash],
-      ["**实际产物必须精确匹配：**", databaseHash, openapiHash],
+      ["**DEV-M3 机器合同增量：**", sha256(coachBytes.database), sha256(coachBytes.openapi)],
+      ["**实际产物必须精确匹配：**", sha256(coachBytes.database), sha256(coachBytes.openapi)],
     ]) {
       const lines = linesForAnchor(increment, "话术师发布合同", anchor);
       if (lines.length !== 1) throw new Error(`话术师发布合同声明必须唯一：${anchor}`);
@@ -435,6 +648,47 @@ export function loadContractSetFromCommit({
       assertLineCarriesHashes(lines[0], anchor, ddl, api);
     }
   }
+
+  if (intakeProfile) {
+    const generated = buildIntakeContractFiles(readSource);
+    for (const key of ["database", "openapi"]) {
+      if (!readSource(INTAKE_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`P2 资料接入合同派生产物漂移：${key}`);
+    }
+    assertIntakeExportGate(readSource, {databaseHash: sha256(generated.database), openapiHash: sha256(generated.openapi)});
+  }
+  if (intakeUsageProfile) {
+    const generated = buildIntakeUsageContractFiles(readSource);
+    for (const key of ["database", "openapi"]) {
+      if (!readSource(INTAKE_USAGE_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`P2 使用资格合同派生产物漂移：${key}`);
+    }
+    assertIntakeUsageExportGate(readSource, {databaseHash: sha256(generated.database), openapiHash: sha256(generated.openapi)});
+  }
+  if (intakeQualityProfile) {
+    const generated = buildIntakeQualityContractFiles(readSource);
+    for (const key of ["database", "openapi"]) {
+      if (!readSource(INTAKE_QUALITY_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`P2 质量 HTTP 合同派生产物漂移：${key}`);
+    }
+    assertIntakeQualityExportGate(readSource, {databaseHash: sha256(generated.database), openapiHash: sha256(generated.openapi)});
+  }
+  if (intakeManagementProfile) {
+    const generated = buildIntakeManagementContractFiles(readSource);
+    for (const key of ["database", "openapi"]) {
+      if (!readSource(INTAKE_MANAGEMENT_CONTRACT_PATHS[key]).equals(generated[key])) throw new Error(`P2 管理上下文合同派生产物漂移：${key}`);
+    }
+    assertIntakeManagementExportGate(readSource, {databaseHash: sha256(generated.database), openapiHash: sha256(generated.openapi)});
+  }
+
+  if (intakeDirectProfile) {
+    const generated = buildIntakeDirectContractFiles(readSource);
+    for (const key of ["database", "openapi"]) {
+      if (!(intakeRuntimeProfile ? readSource(INTAKE_DIRECT_CONTRACT_PATHS[key]) : buffers[key]).equals(generated[key])) throw new Error(`P2 确认直发合同派生产物漂移：${key}`);
+    }
+    assertIntakeDirectExportGate(readSource, {databaseHash:sha256(generated.database),openapiHash:sha256(generated.openapi)});
+  }
+
+  if (intakeRuntimeProfile) assertIntakeRuntimeExportGate(readSource,intakeCsvProfile ? {databaseHash:sha256(readSource(INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.database)),openapiHash:sha256(readSource(INTAKE_SHOP_DIRECTORY_CONTRACT_PATHS.openapi))} : {databaseHash,openapiHash});
+  if (intakeCsvProfile) assertIntakeCsvExportGate(readSource,intakeLegacyCheckProfile ? {databaseHash:sha256(readSource(CSV_PATHS.database)),openapiHash:sha256(readSource(CSV_PATHS.openapi))} : {databaseHash,openapiHash});
+  if (intakeLegacyCheckProfile) assertIntakeLegacyCheckExportGate(readSource,{databaseHash,openapiHash});
 
   const openapiVersion = extractOpenapiVersion(sources.openapi);
   const databaseVersion = extractDatabaseVersion(sources.database);
@@ -447,7 +701,7 @@ export function loadContractSetFromCommit({
   });
   const databaseFile = `schema-v${databaseVersion.replace(/^schema\.v/, "")}.sql`;
   const manifest = {
-    schema: CONTRACT_SET_SCHEMA,
+    schema: intakeLegacyCheckProfile ? LEGACY_CHECK_CONTRACT_SET_SCHEMA : intakeCsvProfile ? CSV_CONTRACT_SET_SCHEMA : intakeRuntimeProfile ? RUNTIME_CONTRACT_SET_SCHEMA : CONTRACT_SET_SCHEMA,
     contract_set_id: contractSetId,
     source_repository: "ai-赋能立项",
     source_git_sha: exactSourceGitSha,
@@ -468,12 +722,20 @@ export function loadContractSetFromCommit({
       bytes: buffers.database.byteLength,
     },
   };
+  const runtimeFiles=new Map();
+  if (intakeRuntimeProfile) {
+    manifest.runtime=Object.fromEntries(Object.entries(intakeLegacyCheckProfile ? LEGACY_CHECK_BUNDLE_PATHS : intakeCsvProfile ? CSV_BUNDLE_PATHS : RUNTIME_BUNDLE_PATHS).map(([key,descriptor])=>{
+      const bytes=readSource(descriptor.source_path);runtimeFiles.set(descriptor.file,bytes);
+      return [key,{version:'1',...descriptor,sha256:sha256(bytes),bytes:bytes.byteLength}];
+    }));
+  }
   return {
     manifest,
     files: new Map([
       ["contract-set.json", Buffer.from(renderContractSetManifest(manifest), "utf8")],
       [manifest.openapi.file, buffers.openapi],
       [manifest.database.file, buffers.database],
+      ...runtimeFiles,
     ]),
   };
 }
@@ -587,14 +849,29 @@ function parseContractSetManifest(content) {
   } catch (error) {
     throw new Error(`contract-set.json 不是合法 JSON：${error.message}`);
   }
-  assertExactKeys(manifest, REQUIRED_MANIFEST_KEYS, "contract-set.json");
+  const isLegacyCheck=manifest.schema===LEGACY_CHECK_CONTRACT_SET_SCHEMA;
+  const isCsv=isLegacyCheck || manifest.schema===CSV_CONTRACT_SET_SCHEMA;
+  const isRuntime=isCsv || manifest.schema===RUNTIME_CONTRACT_SET_SCHEMA;
+  const bundlePaths=isLegacyCheck ? LEGACY_CHECK_BUNDLE_PATHS : isCsv ? CSV_BUNDLE_PATHS : RUNTIME_BUNDLE_PATHS;
+  assertExactKeys(manifest, isRuntime ? [...REQUIRED_MANIFEST_KEYS,"runtime"] : REQUIRED_MANIFEST_KEYS, "contract-set.json");
   assertExactKeys(manifest.openapi, REQUIRED_CONTRACT_KEYS, "contract-set.json.openapi");
   assertExactKeys(manifest.database, REQUIRED_CONTRACT_KEYS, "contract-set.json.database");
-  if (manifest.schema !== CONTRACT_SET_SCHEMA) throw new Error("contract-set schema 不受支持");
+  if (manifest.schema !== CONTRACT_SET_SCHEMA && !isRuntime) throw new Error("contract-set schema 不受支持");
+  if (isRuntime) {
+    if (manifest.openapi.version!==(isCsv?'1.22.0':'1.21.0') || manifest.database.version!==(isLegacyCheck?'schema.v1.25':isCsv?'schema.v1.24':'schema.v1.23')) throw new Error('runtime bundle版本组合不受支持');
+    if (isLegacyCheck && (manifest.openapi.source_path!==LEGACY_CHECK_CONTRACT_PATHS.openapi || manifest.database.source_path!==LEGACY_CHECK_CONTRACT_PATHS.database
+      || manifest.openapi.file!=='openapi.v1.yaml' || manifest.database.file!=='schema-v1.25.sql')) throw new Error('旧内容校验根工件不匹配');
+    assertExactKeys(manifest.runtime,Object.keys(bundlePaths),'contract-set.runtime');
+    for (const [key,expected] of Object.entries(bundlePaths)) {
+      const actual=manifest.runtime[key]; assertExactKeys(actual,REQUIRED_CONTRACT_KEYS,`runtime.${key}`);
+      if (actual.version!=='1' || actual.file!==expected.file || actual.source_path!==expected.source_path) throw new Error(`runtime工件不匹配：${key}`);
+    }
+  }
   if (!GIT_SHA_PATTERN.test(manifest.source_git_sha)) throw new Error("manifest source_git_sha 非法");
   for (const [label, contract] of [
     ["OpenAPI", manifest.openapi],
     ["DDL", manifest.database],
+    ...Object.entries(manifest.runtime ?? {}),
   ]) {
     normalizeExpectedHash(contract.sha256, `${label} manifest SHA-256`);
     if (path.basename(contract.file) !== contract.file) throw new Error(`${label} 文件名越界`);
@@ -684,6 +961,39 @@ export async function writeImmutableContractSet({
   }
 }
 
+function assertLegacyCheckInstallation(manifest, installation, csvInstallation, database, delta) {
+  assertExactKeys(installation, ['schema','status','freezeApproved','exportApproved','runtimeActivated','openapi','database','predecessor','delta','dependencies','referenceMode','productOrder','atomicAppendOnly','grantee','grantKind','loginRoleGrants','tablePrivileges','membershipChanges','functionBodyChanges','exportCondition'], 'legacy check installation');
+  assertExactKeys(installation.openapi,['path','sha256','unchanged'],'legacy check openapi');
+  assertExactKeys(installation.database,['path','sha256'],'legacy check database');
+  assertExactKeys(installation.predecessor,['path','sha256','installation','installationSha256'],'legacy check predecessor');
+  assertExactKeys(installation.delta,['path','sha256'],'legacy check delta');
+  assertExactKeys(installation.referenceMode,['completeDdl','includesPredecessorRoles','includesProductFunctionBodies','runtimeReady'],'legacy check reference mode');
+  const dependencyKeys=Object.keys(CSV_BUNDLE_PATHS).filter(key=>key!=='installation');
+  assertExactKeys(installation.dependencies,dependencyKeys,'legacy check dependencies');
+  if (installation.schema!=='content-intake-legacy-check-installation/v1' || installation.status!=='DRAFT'
+    || installation.freezeApproved!==false || installation.exportApproved!==false || installation.runtimeActivated!==false
+    || installation.openapi.path!==manifest.openapi.source_path || installation.openapi.sha256!==manifest.openapi.sha256 || installation.openapi.unchanged!==true
+    || installation.database.path!==manifest.database.source_path || installation.database.sha256!==manifest.database.sha256
+    || installation.predecessor.path!==CSV_PATHS.database || installation.predecessor.sha256!==csvInstallation.database?.sha256
+    || installation.predecessor.installation!==manifest.runtime.csvInstallation.source_path || installation.predecessor.installationSha256!==manifest.runtime.csvInstallation.sha256
+    || installation.delta.path!==manifest.runtime.legacyAcl.source_path || installation.delta.sha256!==manifest.runtime.legacyAcl.sha256
+    || installation.referenceMode.completeDdl!==manifest.database.source_path || installation.referenceMode.includesPredecessorRoles!==true
+    || installation.referenceMode.includesProductFunctionBodies!==false || installation.referenceMode.runtimeReady!==false
+    || JSON.stringify(installation.productOrder)!==JSON.stringify(['verified-v1.24-product-migrations-and-complete-runtime-ACL','legacy-check-acl','environment-startup'])
+    || installation.atomicAppendOnly!==true || installation.grantee!=='intake_runtime_fn_owner' || installation.grantKind!=='EXECUTE'
+    || installation.loginRoleGrants!==false || installation.tablePrivileges!==false || installation.membershipChanges!==false || installation.functionBodyChanges!==false
+    || typeof installation.exportCondition!=='string') throw new Error('旧内容校验安装边界不一致');
+  for(const [key,item] of Object.entries(installation.dependencies)) {
+    assertExactKeys(item,['path','sha256'],`legacy check dependency ${key}`);
+    if(item.path!==manifest.runtime[key].source_path || item.sha256!==manifest.runtime[key].sha256) throw new Error(`旧内容校验依赖不一致：${key}`);
+  }
+  const prefix=Buffer.from('-- schema.v1.25 — DRAFT legacy CHECK execution closure; immutable v1.24 follows\n');
+  const suffix=Buffer.concat([Buffer.from(`\n-- BEGIN INTAKE LEGACY CHECK ACL ${sha256(delta)}\n`),delta,Buffer.from('-- END INTAKE LEGACY CHECK ACL\n')]);
+  if(database.length<=prefix.length+suffix.length || !database.subarray(0,prefix.length).equals(prefix)
+    || !database.subarray(database.length-suffix.length).equals(suffix)
+    || sha256(database.subarray(prefix.length,database.length-suffix.length))!==installation.predecessor.sha256) throw new Error('旧内容校验DDL并非精确前序加ACL');
+}
+
 export async function verifyContractSetDirectory({
   contractSetDirectory,
   repository = repositoryRoot,
@@ -719,20 +1029,51 @@ export async function verifyContractSetDirectory({
     throw new Error("manifest DDL SHA-256 与调用方预期不一致");
   }
 
-  const allowedNames = ["contract-set.json", manifest.openapi.file, manifest.database.file].sort();
+  const allowedNames = ["contract-set.json", manifest.openapi.file, manifest.database.file,...Object.values(manifest.runtime ?? {}).map(item=>item.file)].sort();
   const actualNames = (await readdir(directory)).sort();
   if (actualNames.join("\n") !== allowedNames.join("\n")) {
     throw new Error("合同集目录包含缺失或未声明成员");
   }
+  const verifiedContent=new Map();
   for (const [label, contract] of [
     ["OpenAPI", manifest.openapi],
     ["DDL", manifest.database],
+    ...Object.entries(manifest.runtime ?? {}),
   ]) {
     const content = await readRegularFileNoFollow(path.join(directory, contract.file), canonicalDirectory);
     if (content.byteLength !== contract.bytes) throw new Error(`${label} bytes 不匹配`);
     if (sha256(content) !== contract.sha256) throw new Error(`${label} SHA-256 不匹配`);
+    verifiedContent.set(label,content);
   }
 
+  if (manifest.runtime) {
+    const isLegacyCheck=manifest.schema===LEGACY_CHECK_CONTRACT_SET_SCHEMA;
+    const isCsv=isLegacyCheck || manifest.schema===CSV_CONTRACT_SET_SCHEMA;
+    const bundlePaths=isCsv ? CSV_BUNDLE_PATHS : RUNTIME_BUNDLE_PATHS;
+    const installation=JSON.parse(utf8(verifiedContent.get(isLegacyCheck?'csvInstallation':'installation'),'runtime installation'));
+    const closure=isLegacyCheck ? JSON.parse(utf8(verifiedContent.get('installation'),'legacy check installation')) : null;
+    if(isLegacyCheck) assertLegacyCheckInstallation(manifest,closure,installation,verifiedContent.get('DDL'),verifiedContent.get('legacyAcl'));
+    const installedDatabase=isLegacyCheck ? {source_path:closure.predecessor.path,sha256:closure.predecessor.sha256} : manifest.database;
+    if (installation.schema!=='content-intake-installation/v1' || installation.openapi.sha256!==manifest.openapi.sha256
+      || installation.database.sha256!==installedDatabase.sha256 || installation.companionAclRequired!==true
+      || installation.productMode?.skipMissingDependencies!==false) throw new Error('runtime安装清单不匹配');
+    assertExactKeys(installation.sources,Object.keys(bundlePaths).filter(key=>key!=='installation'),'runtime installation sources');
+    for (const [key,item] of Object.entries(installation.sources)) {
+      if (item.path!==manifest.runtime[key]?.source_path || item.sha256!==manifest.runtime[key]?.sha256) throw new Error(`runtime安装工件哈希不一致：${key}`);
+    }
+    const expectedOrder=['product-migrations','roles','organization','session','directory','directoryAcl','acl','environment-login-bindings'];
+    if(isCsv) expectedOrder.splice(expectedOrder.indexOf('acl'),0,'csv');
+    const expectedArtifacts=['openapi','database',...Object.keys(bundlePaths)].sort();
+    if (installation.openapi.path!==manifest.openapi.source_path || installation.database.path!==installedDatabase.source_path
+      || installation.productMode.atomicCandidateInstall!==true
+      || JSON.stringify(installation.productMode.order)!==JSON.stringify(expectedOrder)
+      || !Array.isArray(installation.requiredBundleArtifacts)
+      || JSON.stringify([...installation.requiredBundleArtifacts].sort())!==JSON.stringify(expectedArtifacts)
+      || installation.capabilityLogin!==false || installation.environmentCredentialsIncluded!==false) throw new Error('runtime安装边界不一致');
+    if(isCsv && (installation.sqlContract!=='schema.v1.24' || installation.productMode.csvInputImplementationRequired!==true || installation.productMode.csvProductionConsumerReady!==false || installation.referenceMode?.runtimeReady!==false || JSON.stringify(installation.referenceMode?.includes)!==JSON.stringify(['roles','organization','session','directory','directoryAcl','csv']))) throw new Error('CSV 产品实施边界不一致');
+    const provenance=JSON.parse(utf8(verifiedContent.get('provenance'),'runtime provenance'));
+    if (JSON.stringify(installation.productMode.implementation)!==JSON.stringify(provenance.implementationDependencies)) throw new Error('runtime overlay依赖不一致');
+  }
   if (againstSource) {
     const expected = loadContractSetFromCommit({
       repository,

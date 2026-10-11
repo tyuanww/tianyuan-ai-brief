@@ -1,0 +1,21 @@
+{
+  "status": "EXPORTED_VERIFIED_NOT_ACTIVATED",
+  "sourceGitSha": "adbc7b1ce251816fc02957a0042742ae2d053f9a",
+  "contractSetId": "cs-ai-c11-openapi-1.22.0-schema-1.24-adbc7b1ce251",
+  "manifestSha256": "0bb26dccad0c3007435cff0666a5033f4ee439504c70fe47eead66f8e9a6d977",
+  "directory": "output/customer-agent-contract-sets/cs-ai-c11-openapi-1.22.0-schema-1.24-adbc7b1ce251",
+  "files": 14,
+  "runtimeArtifacts": 11,
+  "readOnly": true,
+  "exactSourceVerification": "writeImmutableContractSet followed by verifyContractSetDirectory against the exact source commit inside the actual --write CLI",
+  "command": "node business-docs/08-工具/export_customer_agent_contract_set.mjs --write --source-git-sha=adbc7b1ce251816fc02957a0042742ae2d053f9a --expect-openapi-sha256=3f741eb980aba1cd9a2a273b25771b50299e1aef3acbc6a1579b57541ed43a94 --expect-database-sha256=c4ceffa961728423b755b00d551b9ab67fbf33ffe1dd87d8e671f6d151f744c5",
+  "exitCode": 0,
+  "logs": {
+    "output/content-intake-csv-freeze/export.log": "0e6604ba5da50f22cb234689336bdeb6ff7c8ae5cd6f01adf7ca0937a3618006"
+  },
+  "frozenChecksSourceCommit": "adbc7b1ce251816fc02957a0042742ae2d053f9a",
+  "machineDraftMetadataPreserved": true,
+  "productConsumedAtExport": false,
+  "runtimeActivated": false,
+  "fullReview": "INCOMPLETE"
+}

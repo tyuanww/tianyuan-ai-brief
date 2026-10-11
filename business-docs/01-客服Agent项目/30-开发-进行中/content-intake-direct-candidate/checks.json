@@ -1,0 +1,259 @@
+{
+  "base_commit": "d7b13525a56e623a5781e6c28d4b69a0decba1af",
+  "environment": {
+    "node": "24.19.0",
+    "pg": "15.18",
+    "fixtures": "synthetic only"
+  },
+  "checks": [
+    {
+      "command": "npm --prefix sites run test:machine-contracts",
+      "exit_code": 0,
+      "log_key": "machine",
+      "log_sha256": "e3314120c92dc47ed4d19c7cd686a092203b09b5819efead6126d6c5a9992838"
+    },
+    {
+      "command": "npm --prefix sites run test:release",
+      "status": "NOT_RUN",
+      "reason": "草稿未冻结。本轮改了 storage.delta.sql 与 schema.v1.22；上一轮完整 test:release 绑定旧字节，证据失效。含浏览器的 test:release 本轮不作为冻结门。",
+      "previous_log_sha256": "6f6b916d21224434009e43cc8765a7c92604e13f5497de3da2d982170774fec8",
+      "previous_bound_openapi_sha256": "1513fe499773c83f4a2b9f0ca8e3a5f7369638f72dc1d18a291235093cfc034d",
+      "previous_bound_schema_sha256": "3b7d7e67fcf18b9d00cbb916220b862b4f6b4f1e942d6bf367d66dd20dd60c0f",
+      "log_key": "release",
+      "log_sha256": "0bb8c8dc54f25b822e5affb9a6696625221648319bd69a312363ce9f8f50b9b4"
+    },
+    {
+      "command": "test:intake-direct-contract + check:intake-direct-contract + lint:intake-direct-openapi",
+      "exit_code": 0,
+      "log_key": "targeted",
+      "log_sha256": "1378159b9641a57af74823834e229314d19d19ce85c8782e80b930824f757fa5"
+    },
+    {
+      "command": "PG_BIN=<local PostgreSQL 15.18 bindir> npm --prefix sites run test:intake-direct-contract:pg",
+      "exit_code": 0,
+      "checks": 126,
+      "result": "pg-summary.json",
+      "scope": "storage and authorization predicate only; publish/concurrency/runtime NOT TESTED"
+    },
+    {
+      "source_commit": "9856fba2f0a4cdee445e39c3bc0863bcba8f7c25",
+      "command": "npm --prefix sites run test:release",
+      "started_at": "2026-10-08T06:39:11.217465+00:00",
+      "finished_at": "2026-10-08T06:47:21.605752+00:00",
+      "exit_code": 1,
+      "log_sha256": "077a11c21216a73160c8b47eb7efd9c15dee2b7fe30cdf3d8cc32e9743523115",
+      "scope": "current direct draft; not a code review or freeze approval",
+      "log_key": "release_9856fba",
+      "bound_schema_sha256": "c5e4896e8ed1ff587e23a70723bd9d81c056ba65561cd9d94963aa6b5f1ae3ce",
+      "bound_openapi_sha256": "1513fe499773c83f4a2b9f0ca8e3a5f7369638f72dc1d18a291235093cfc034d",
+      "steps": [
+        {
+          "script": "test",
+          "seconds": 86.72,
+          "exit_code": 0
+        },
+        {
+          "script": "test:boundary-integration",
+          "seconds": 38.58,
+          "exit_code": 0
+        },
+        {
+          "script": "test:layout-ui",
+          "seconds": 3.46,
+          "exit_code": 0
+        },
+        {
+          "script": "test:ui",
+          "seconds": 72.27,
+          "exit_code": 0
+        },
+        {
+          "script": "test:arch-board-ui",
+          "seconds": 12.16,
+          "exit_code": 0
+        },
+        {
+          "script": "test:business",
+          "seconds": 39.41,
+          "exit_code": 0
+        },
+        {
+          "script": "test:customer-agent-python-tools",
+          "seconds": 3.2,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:openapi",
+          "seconds": 1.17,
+          "exit_code": 0
+        },
+        {
+          "script": "check:owner-contract",
+          "seconds": 0.12,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:owner-openapi",
+          "seconds": 0.86,
+          "exit_code": 0
+        },
+        {
+          "script": "test:backend-candidate",
+          "seconds": 0.54,
+          "exit_code": 0
+        },
+        {
+          "script": "check:backend-contract",
+          "seconds": 18.55,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:backend-openapi",
+          "seconds": 6.75,
+          "exit_code": 0
+        },
+        {
+          "script": "test:ops-loop-candidate",
+          "seconds": 0.55,
+          "exit_code": 0
+        },
+        {
+          "script": "check:ops-loop-contract",
+          "seconds": 0.18,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:ops-loop-openapi",
+          "seconds": 0.84,
+          "exit_code": 0
+        },
+        {
+          "script": "test:coach-publish-candidate",
+          "seconds": 0.49,
+          "exit_code": 0
+        },
+        {
+          "script": "check:coach-publish-contract",
+          "seconds": 0.12,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:coach-publish-openapi",
+          "seconds": 0.8,
+          "exit_code": 0
+        },
+        {
+          "script": "test:intake-contract",
+          "seconds": 27.85,
+          "exit_code": 0
+        },
+        {
+          "script": "check:intake-contract",
+          "seconds": 0.18,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:intake-openapi",
+          "seconds": 0.8,
+          "exit_code": 0
+        },
+        {
+          "script": "test:intake-usage-contract",
+          "seconds": 38.35,
+          "exit_code": 0
+        },
+        {
+          "script": "check:intake-usage-contract",
+          "seconds": 0.33,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:intake-usage-openapi",
+          "seconds": 0.95,
+          "exit_code": 0
+        },
+        {
+          "script": "test:intake-quality-contract",
+          "seconds": 53.42,
+          "exit_code": 0
+        },
+        {
+          "script": "check:intake-quality-contract",
+          "seconds": 0.18,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:intake-quality-openapi",
+          "seconds": 0.83,
+          "exit_code": 0
+        },
+        {
+          "script": "test:intake-management-contract",
+          "seconds": 64.04,
+          "exit_code": 0
+        },
+        {
+          "script": "check:intake-management-contract",
+          "seconds": 0.18,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:intake-management-openapi",
+          "seconds": 0.79,
+          "exit_code": 0
+        },
+        {
+          "script": "test:intake-direct-contract",
+          "seconds": 0.6,
+          "exit_code": 0
+        },
+        {
+          "script": "check:intake-direct-contract",
+          "seconds": 0.15,
+          "exit_code": 0
+        },
+        {
+          "script": "lint:intake-direct-openapi",
+          "seconds": 0.8,
+          "exit_code": 0
+        },
+        {
+          "script": "test:sql-grammar",
+          "seconds": 0.32,
+          "exit_code": 0
+        },
+        {
+          "script": "test:architecture-contract",
+          "seconds": 0.27,
+          "exit_code": 0
+        },
+        {
+          "script": "check:arch-diagrams",
+          "seconds": 1.93,
+          "exit_code": 0
+        },
+        {
+          "script": "audit:deps",
+          "seconds": 11.35,
+          "exit_code": 1
+        }
+      ],
+      "status": "AUDIT_ENDPOINT_TIMEOUT"
+    },
+    {
+      "source_commit": "9856fba2f0a4cdee445e39c3bc0863bcba8f7c25",
+      "command": "npm --prefix sites run audit:deps",
+      "started_at": "2026-10-08T06:47:38.008079+00:00",
+      "finished_at": "2026-10-08T06:47:39.022971+00:00",
+      "exit_code": 0,
+      "log_sha256": "b5800dcec73a0e1b53d128f485282e6e75d7c9aa30dea60e3486f819fd6adefd",
+      "scope": "single bounded retry after npm registry read ETIMEDOUT; no dependency changes",
+      "log_key": "audit_retry_9856fba",
+      "bound_schema_sha256": "c5e4896e8ed1ff587e23a70723bd9d81c056ba65561cd9d94963aa6b5f1ae3ce",
+      "bound_openapi_sha256": "1513fe499773c83f4a2b9f0ca8e3a5f7369638f72dc1d18a291235093cfc034d",
+      "status": "PASS",
+      "resolves": "release_9856fba audit:deps endpoint timeout"
+    }
+  ],
+  "committed": false
+}

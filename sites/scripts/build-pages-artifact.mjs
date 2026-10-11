@@ -16,18 +16,11 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { SECURITY_ARCHIVE_ROOT as ARCHIVED_SITE_ROOT, SECURITY_MANIFEST_PATH as ARCHIVE_MANIFEST_PATH } from "./build-security-maintenance-archive.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const siteRoot = path.resolve(path.dirname(scriptPath), "..");
 const repoRoot = path.resolve(siteRoot, "..");
-const ARCHIVED_SITE_ROOT = path.join(
-  repoRoot,
-  "archive/2026-08-09-ai-project-brief-security-maintenance"
-);
-const ARCHIVE_MANIFEST_PATH = path.join(
-  repoRoot,
-  "archive/2026-08-09-ai-project-brief-security-maintenance.manifest.json"
-);
 const LOCAL_PRD_HREF = "../../business-docs/01-客服Agent项目/07-客服Agent立项PRD.html";
 const LOCAL_HUB_HREF = "../../business-docs/01-客服Agent项目/08-客服Agent立项执行中心.html";
 const LOCAL_MEETING_HREF = "../../business-docs/01-客服Agent项目/09-客服Agent需求会汇报.html";

@@ -69,6 +69,28 @@ test('every standalone test has a release route or explicit isolated PG route', 
       assert.ok(scripts['test:owner-acceptance:pg15'].includes(file));
     } else if (file === 'backend-runtime-candidate.pg.mjs') {
       assert.ok(scripts['test:backend-candidate:pg'].includes(file));
+    } else if (file === 'content-intake-contract.pg.mjs') {
+      assert.ok(scripts['test:intake-contract:pg'].includes(file));
+    } else if (file === 'content-intake-shop-directory-contract.pg.mjs') {
+      assert.ok(scripts['test:intake-shop-directory-contract:pg'].includes(file));
+      assert.equal(direct.includes(file), false);
+    } else if (file === 'content-intake-csv-contract.pg.mjs') {
+      assert.ok(scripts['test:intake-csv-contract:pg'].includes(file));
+      assert.equal(direct.includes(file), false);
+    } else if (file === 'repair-successor-candidate.pg15.mjs') {
+      assert.equal(scripts['test:repair-successor:pg15'], `node --test tests/${file}`);
+      assert.equal(releaseSteps.includes('test:repair-successor:pg15'), false);
+      assert.equal(direct.includes(file), false);
+    } else if (file === 'readiness-successor.pg15.mjs') {
+      assert.equal(scripts['test:readiness-successor:pg15'], `node --test tests/${file}`);
+      assert.equal(direct.includes(file), false);
+    } else if (file === 'sop-media-upgrade.pg15.mjs') {
+      assert.equal(scripts['test:sop-media-upgrade:pg15'], `node --test tests/${file}`);
+      assert.equal(releaseSteps.includes('test:sop-media-upgrade:pg15'), false);
+      assert.equal(direct.includes(file), false);
+    } else if (file === 'content-intake-runtime-closure.pg.mjs') {
+      assert.ok(scripts['test:intake-runtime-closure-contract:pg'].includes(file));
+      assert.equal(direct.includes(file), false);
     } else assert.ok(direct.includes(file), `${file} has no release gate`);
   }
 });
